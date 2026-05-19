@@ -1,9 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Layout from "./components/Layout";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ChatsPage from "./pages/ChatsPage";
-import ChatRoomPage from "./pages/ChatsRoomPage";
+import Layout from "./components/Layout.tsx";
+import LoginPage from "./pages/LoginPage.tsx";
+import RegisterPage from "./pages/RegisterPage.tsx";
+import ChatsPage from "./pages/ChatsPage.tsx";
+import ChatRoomPage from "./pages/ChatsRoomPage.tsx";
 
 function App() {
   return (
