@@ -34,6 +34,10 @@ authApi.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Если это запрос на логин или регистрацию — не пытаемся обновлять токен
+      if (originalRequest.url === '/login' || originalRequest.url === '/register') {
+        return Promise.reject(error)
+}
       // если это сам запрос на обновление токена вернул 401 - конец
       if (originalRequest.url === '/refresh') {
         localStorage.clear()
