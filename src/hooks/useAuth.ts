@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import useAuthStore from "../store/authStore";
+import useAuthStore, { isTokenExpired } from "../store/authStore";
 import { loginApi, registerApi } from "../lib/api";
 import { jwtDecode } from "jwt-decode";
 
@@ -28,7 +28,7 @@ export function useAuth() {
   return {
     accessToken,
     user,
-    isAuthenticated: !!accessToken,
+    isAuthenticated: !!accessToken && !isTokenExpired(accessToken),
     login,
     register,
     logout,

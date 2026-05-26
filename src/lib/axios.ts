@@ -40,6 +40,7 @@ authApi.interceptors.response.use(
 }
       // если это сам запрос на обновление токена вернул 401 - конец
       if (originalRequest.url === '/refresh') {
+        useAuthStore.getState().clearAuth();
         localStorage.clear()
         window.location.href = '/login'
         return Promise.reject(error)
