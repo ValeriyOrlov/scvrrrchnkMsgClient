@@ -12,6 +12,13 @@ export interface ChatMember {
   user: User
 }
 
+export interface Chat {
+  id: number
+  type: 'private' | 'group'
+  chat_name: string
+  members: ChatMember[]
+}
+
 export interface Message {
   id: number
   chat_id: number
