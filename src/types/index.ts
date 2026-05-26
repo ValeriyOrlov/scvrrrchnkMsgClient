@@ -17,6 +17,7 @@ export interface Chat {
   type: 'private' | 'group'
   chat_name: string
   members: ChatMember[]
+  last_message?: Message | null
 }
 
 export interface Message {
