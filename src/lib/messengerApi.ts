@@ -1,7 +1,8 @@
 import axios from "axios"
+import useAuthStore from '../store/authStore'
 
 const messengerApi = axios.create({
-  baseURL: import.meta.env.VITE_MESSANGER_API_URL || 'http://localhost:8081/api',
+  baseURL: import.meta.env.VITE_MESSENGER_API_URL || 'http://localhost:8081/api',
 })
 
 messengerApi.interceptors.request.use((config) => {
@@ -11,5 +12,16 @@ messengerApi.interceptors.request.use((config) => {
   }
   return config
 })
+
+messengerApi.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      useAuthStore.getState().clearAuth()
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
 
 export default messengerApi
