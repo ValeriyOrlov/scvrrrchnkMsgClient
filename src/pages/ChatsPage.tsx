@@ -14,6 +14,12 @@ export default function ChatsPage() {
     navigate(`/chats/${chatId}`)
   }
 
+  const handleLogout = () => {
+    logout() // очищает токены и Zustand
+    navigate('/login', { replace: true }) // перенаправляем на страницу входа
+    // replace: true убирает "/chats" из истории, чтобы кнопка "Назад" не возвращала обратно
+  }
+
   if (isLoading) return <ChatsSkeleton />
   if (isError) return <ErrorView onRetry={refetch} />
   if (!chats || chats.length === 0) return <EmptyView />
@@ -22,7 +28,7 @@ export default function ChatsPage() {
       {/* Хедер с именем пользователя и кнопкой выхода */}
       <header className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-lg font-semibold">{user?.username}</h2>
-        <button onClick={logout} className="text-sm text-red-500">Выйти</button>
+        <button onClick={handleLogout} className="text-sm text-red-500">Выйти</button>
       </header>
       <ul className="flex-1 overflow-y-auto">
         {chats.map(chat => (
