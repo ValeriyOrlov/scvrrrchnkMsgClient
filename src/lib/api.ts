@@ -22,3 +22,9 @@ export const getMessages = (chatId: number, limit = 50, offset = 0) =>
 
 export const sendMessage = (chatId: number, content: string) =>
   messengerApi.post<Message>(`/chats/${chatId}/messages`, { content }).then(res => res.data)
+
+export const createChat = (type: string, name: string, memberIds: number[]) =>
+  messengerApi.post('/chats', { type, chat_name: name, member_ids: memberIds}).then(res => res.data)
+
+export const searchUsers = (q: string) =>
+  messengerApi.get('/users/search', { params: { q } }).then(res => res.data)

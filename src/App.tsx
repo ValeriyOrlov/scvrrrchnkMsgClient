@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage.tsx";
 import RegisterPage from "./pages/RegisterPage.tsx";
 import ChatsPage from "./pages/ChatsPage.tsx";
 import ChatRoomPage from "./pages/ChatsRoomPage.tsx";
+import SearchPage from "./pages/SearchPage.tsx";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/chats" element={<ChatsPage />} />
         <Route path="/chats/:id" element={<ChatRoomPage />} />
+        <Route path="/search" element={<SearchPage />} />
         {/* Корневой путь автоматически перенаправляет на /chats */}
         <Route path="/" element={<Navigate to="/chats" replace />} />
       </Route>

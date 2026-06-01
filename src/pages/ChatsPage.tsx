@@ -8,6 +8,7 @@ import { ChatListItem } from '../components/ChatListItem.tsx'
 
 export default function ChatsPage() {
   const { user, logout } = useAuth()
+  console.log(user)
   const navigate = useNavigate()
   const { data: chats, isLoading, isError, refetch } = useChats()
   const handleChatClick = (chatId: number) => {
@@ -27,6 +28,7 @@ export default function ChatsPage() {
       <div className="flex flex-col h-full">
       {/* Хедер с именем пользователя и кнопкой выхода */}
       <header className="p-4 border-b border-gray-200 flex justify-between items-center">
+
         <h2 className="text-lg font-semibold">{user?.username}</h2>
         <button onClick={handleLogout} className="text-sm text-red-500">Выйти</button>
       </header>
@@ -40,6 +42,13 @@ export default function ChatsPage() {
           />
         ))}
       </ul>
+      <footer>
+        <button
+          onClick={() => navigate('/search')}
+          className="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg">
+          + Новый чат
+        </button>
+      </footer>
     </div>
   )
 }
