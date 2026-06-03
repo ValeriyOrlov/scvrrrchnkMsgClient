@@ -51,7 +51,11 @@ export default function SearchPage() {
           autoFocus
         />
       </header>
-
+      <button
+          onClick={() => navigate('/searchGroupMembers')}
+          className="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg">
+          + Новая группа
+      </button>
       {/* Результаты поиска */}
       <div className="flex-1 overflow-y-auto">
         {loading && <p className="p-4 text-gray-500">Загрузка...</p>}
