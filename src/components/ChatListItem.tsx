@@ -10,7 +10,6 @@ export function ChatListItem({ chat, currentUserId, onPress }: ChatListItemProps
   let displayName: string
   if (chat.type === 'private') {
     const otherMember = chat.members?.find(m => m.user?.id !== undefined && m.user.id !== currentUserId)
-    console.log(otherMember)
     displayName = otherMember?.user?.username || 'Приватный чат'
   } else {
     displayName = chat.chat_name || 'Группа'
