@@ -26,7 +26,6 @@ export function useWebSocket() {
       }
     }
     ws.onclose = () => {
-  console.log(`WebSocket closed code=${event.code} reason=${event.reason}`)
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000)
     }
     ws.onerror = (error) => {
