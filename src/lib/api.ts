@@ -13,6 +13,9 @@ export const refreshApi = (refreshToken: string) => authApi.post('/refresh', { r
 
 export const getChats = () => messengerApi.get<Chat[]>('/chats').then(res => res.data)
 
+export const getChat = (chatId: number) =>
+  messengerApi.get<Chat>(`/chats/${chatId}`).then(res => res.data)
+
 export const getChatById = (chatId: number) => messengerApi.get<Chat>(`/chats/${chatId}`).then(res => res.data)
 
 export const getMessages = (chatId: number, limit = 50, offset = 0) =>
@@ -28,3 +31,9 @@ export const createChat = (type: string, name: string, memberIds: number[]) =>
 
 export const searchUsers = (q: string) =>
   messengerApi.get('/users/search', { params: { q } }).then(res => res.data)
+
+export const addMembersToChat = (chatId: number, memberIds: number[]) =>
+  messengerApi.post(`/chats/${chatId}/members`, { member_ids: memberIds })
+
+export const leaveChat = (chatId: number) =>
+  messengerApi.delete(`/chats/${chatId}/members`).then(res => res.data)
