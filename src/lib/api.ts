@@ -37,3 +37,12 @@ export const addMembersToChat = (chatId: number, memberIds: number[]) =>
 
 export const leaveChat = (chatId: number) =>
   messengerApi.delete(`/chats/${chatId}/members`).then(res => res.data)
+
+export const updateMessage = (chatId: number, messageId: number, content: string) =>
+  messengerApi.patch(`/chats/${chatId}/messages/${messageId}`, { content }).then(res => res.data)
+
+export const deleteMessage = (chatId: number, messageId: number) =>
+  messengerApi.delete(`/chats/${chatId}/messages/${messageId}`)
+
+export const getOnlineUsers = () =>
+  messengerApi.get('/online').then(res => res.data.online)
