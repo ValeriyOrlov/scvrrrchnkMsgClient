@@ -45,7 +45,7 @@ export default function ChatRoomPage() {
       </header>
       {/* Список сообщений */}
       <div className="flex-1 overflow-y-auto">
-        {reversedMessages && <MessageList messages={reversedMessages} currentUserId={user!.id} />}
+        {reversedMessages && <MessageList messages={reversedMessages} currentUserId={user!.id} chatId={chatId}/>}
       </div>
       {/* Поле ввода */}
       <MessageInput chatId={chatId} />
