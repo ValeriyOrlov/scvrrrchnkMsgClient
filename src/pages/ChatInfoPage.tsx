@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../hooks/useAuth'
-import { useChat } from '../hooks/useChat'
-import { searchUsers } from '../lib/api'
-import { addMembersToChat } from '../lib/api'
-import { leaveChat } from '../lib/api'
-import type { User } from '../types'
+import { useAuth } from '../hooks/useAuth.ts'
+import { useChat } from '../hooks/useChat.ts'
+import { searchUsers, addMembersToChat, leaveChat } from '../lib/api.ts'
+import type { User } from '../types/index.ts'
 
 export default function ChatInfoPage() {
   const { id } = useParams<{ id: string }>()
