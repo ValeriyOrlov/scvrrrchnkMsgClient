@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
-import type { Message } from '../types'
 
 export function useWebSocket() {
   const queryClient = useQueryClient()
@@ -18,9 +17,26 @@ export function useWebSocket() {
     ws.onopen = () => console.log('WebSocket connected')
     ws.onmessage = (event) => {
       try {
-        const message: Message = JSON.parse(event.data)
-        queryClient.invalidateQueries({ queryKey: ['messages', message.chat_id] })
-        queryClient.invalidateQueries({ queryKey: ['chats'] })
+        const data = JSON.parse(event.data)
+        if (data.type === 'chat_message') {
+          queryClient.invalidateQueries({ queryKey: ['messages', data.chat_id] })
+          queryClient.invalidateQueries({ queryKey: ['chats'] })
+        } else if (data.type === 'message_updated' || data.type === 'message_deleted') {
+        // Достаём chat_id из вложенного message или из отдельного поля
+          const chatId = data.message?.chat_id || data.chat_id
+          if (chatId) {
+            queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
+            queryClient.invalidateQueries({ queryKey: ['chats'] })
+          }
+        } else if (data.type === 'user_status') {
+          queryClient.setQueryData(['onlineUsers'], (old: number[] = []) => {
+            if (data.online) {
+              return [...new Set([...old, data.user_id])]
+            } else {
+              return old.filter(id => id !== data.user_id)
+            }
+          })
+        }
       } catch (err) {
         console.error('Invalid WS message', err)
       }
