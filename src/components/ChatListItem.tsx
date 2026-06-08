@@ -19,16 +19,22 @@ export function ChatListItem({ chat, currentUserId, onPress }: ChatListItemProps
 
   const avatarLetter = displayName.charAt(0).toUpperCase()
   const { data: onlineUsers } = useOnlineUsers()
-  const isOnline = onlineUsers?.includes(otherMember?.user_id)
+  const isOnline = chat.type === 'private' && (() => {
+    const otherMember = chat.members?.find(m => m.user.id !== currentUserId)
+    return otherMember ? onlineUsers.includes(otherMember.user.id) : false
+  })()
   return (
     <li
       onClick={onPress}
       className="flex items-center gap-3 p-4 border-b border-gray-100 active:bg-gray-50 cursor-pointer transition-colors"
     >
-      <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 ${
+        isOnline 
+        ? 'bg-blue-200 ring-2 ring-green-300 ring-offset-2 ring-offset-white' 
+        : 'bg-blue-200'
+        }`}>
         {avatarLetter}
       </div>
-        {isOnline && <span className="w-2 h-2 bg-green-500 rounded-full inline-block ml-1" />}
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{displayName}</p>
         {chat.last_message ? (
