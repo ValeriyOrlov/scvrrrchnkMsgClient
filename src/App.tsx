@@ -7,20 +7,19 @@ import ChatRoomPage from "./pages/ChatRoomPage.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
 import SearchGroupMembersPage from "./pages/SearchGroupMembersPage.tsx";
 import ChatInfoPage from "./pages/ChatInfoPage.tsx";
+import ProtectedRoute from "./components/ProtectedRoute.tsx";
 
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        {/* Все страницы рендерятся внутри Layout */}
+        <Route element={<Layout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/chats" element={<ChatsPage />} />
-        <Route path="/chats/:id" element={<ChatRoomPage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/searchGroupMembers" element={<SearchGroupMembersPage />} />
-        <Route path="/chats/:id/info" element={<ChatInfoPage />} />
-        {/* Корневой путь автоматически перенаправляет на /chats */}
+        <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+        <Route path="/chats/:id" element={<ProtectedRoute><ChatRoomPage /></ProtectedRoute>} />
+        <Route path="/search" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
+        <Route path="/searchGroupMembers" element={<ProtectedRoute><SearchGroupMembersPage /></ProtectedRoute>} />
+        <Route path="/chats/:id/info" element={<ProtectedRoute><ChatInfoPage /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/chats" replace />} />
       </Route>
     </Routes>
