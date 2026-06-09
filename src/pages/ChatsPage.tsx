@@ -7,11 +7,16 @@ import { EmptyView } from '../components/EmptyView.tsx'
 import { ChatListItem } from '../components/ChatListItem.tsx'
 
 export default function ChatsPage() {
-  const { user, logout } = useAuth()
+  const { user: currentUser, logout } = useAuth()
   const navigate = useNavigate()
   const { data: chats, isLoading, isError, refetch } = useChats()
   const handleChatClick = (chatId: number) => {
     navigate(`/chats/${chatId}`)
+  }
+  
+  if (!currentUser) {
+    navigate('/login', { replace: true })
+    return null
   }
 
   const handleLogout = () => {
@@ -27,7 +32,7 @@ export default function ChatsPage() {
       <div className="flex flex-col h-full">
       {/* Хедер с именем пользователя и кнопкой выхода */}
       <header className="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">{user?.username}</h2>
+        <h2 className="text-lg font-semibold">{currentUser?.username}</h2>
         <button onClick={handleLogout} className="text-sm text-red-500">Выйти</button>
       </header>
       <ul className="flex-1 overflow-y-auto">
@@ -35,7 +40,7 @@ export default function ChatsPage() {
           <ChatListItem
             key={chat.id}
             chat={chat}
-            currentUserId={user!.id}
+            currentUserId={currentUser!.id}
             onPress={() => handleChatClick(chat.id)}
           />
         ))}

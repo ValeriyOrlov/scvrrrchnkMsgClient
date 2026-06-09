@@ -1,28 +1,26 @@
-import { useOnlineUsers } from "../hooks/useOnlineUsers";
 import type { Chat } from "../types";
 
 interface ChatListItemProps {
-  chat: Chat
-  currentUserId: number
-  onPress: () => void
+  chat: Chat;
+  currentUserId: number;
+  onPress: () => void;
+  onlineUsers: number[];
 }
 
-export function ChatListItem({ chat, currentUserId, onPress }: ChatListItemProps) {
-  let displayName: string
-  const otherMember = chat.members?.find(m => m.user?.id !== undefined && m.user.id !== currentUserId)
+export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: ChatListItemProps) {
+  let displayName: string;
+  let isOnline = false;
 
   if (chat.type === 'private') {
-    displayName = otherMember?.user?.username || 'Приватный чат'
+    const otherMember = chat.members?.find(m => m.user?.id !== undefined && m.user.id !== currentUserId);
+    displayName = otherMember?.user?.username || 'Приватный чат';
+    isOnline = otherMember ? onlineUsers?.includes(otherMember.user.id) : false;
   } else {
-    displayName = chat.chat_name || 'Группа'
+    displayName = chat.chat_name || 'Группа';
   }
 
-  const avatarLetter = displayName.charAt(0).toUpperCase()
-  const { data: onlineUsers } = useOnlineUsers()
-  const isOnline = chat.type === 'private' && (() => {
-    const otherMember = chat.members?.find(m => m.user.id !== currentUserId)
-    return otherMember ? onlineUsers.includes(otherMember.user.id) : false
-  })()
+  const avatarLetter = displayName.charAt(0).toUpperCase();
+
   return (
     <li
       onClick={onPress}
@@ -30,9 +28,9 @@ export function ChatListItem({ chat, currentUserId, onPress }: ChatListItemProps
     >
       <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 ${
         isOnline 
-        ? 'bg-blue-200 ring-2 ring-green-300 ring-offset-2 ring-offset-white' 
-        : 'bg-blue-200'
-        }`}>
+          ? 'bg-green-500 ring-2 ring-green-300 ring-offset-2 ring-offset-white' 
+          : 'bg-blue-200'
+      }`}>
         {avatarLetter}
       </div>
       <div className="flex-1 min-w-0">
