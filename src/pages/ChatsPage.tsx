@@ -1,57 +1,66 @@
-import { useChats } from '../hooks/useChats.ts'
-import { useAuth } from '../hooks/useAuth'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChatsSkeleton } from '../components/ChatsSkeleton.tsx'
-import { ErrorView } from '../components/ErrorView.tsx'
-import { EmptyView } from '../components/EmptyView.tsx'
-import { ChatListItem } from '../components/ChatListItem.tsx'
+import { useAuth } from '../hooks/useAuth'
+import { useChats } from '../hooks/useChats'
+import { ChatListItem } from '../components/ChatListItem'
+import { ChatsSkeleton } from '../components/ChatsSkeleton'
+import { ErrorView } from '../components/ErrorView'
+import { EmptyView } from '../components/EmptyView'
+import { useQuery } from '@tanstack/react-query'
+import { getOnlineUsers } from '../lib/api'
 
 export default function ChatsPage() {
   const { user: currentUser, logout } = useAuth()
   const navigate = useNavigate()
   const { data: chats, isLoading, isError, refetch } = useChats()
-  const handleChatClick = (chatId: number) => {
-    navigate(`/chats/${chatId}`)
-  }
-  
+  const { data: onlineUsers = [] } = useQuery({
+    queryKey: ['onlineUsers'],
+    queryFn: getOnlineUsers,
+    staleTime: Infinity,
+  })
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login', { replace: true })
+    }
+  }, [currentUser, navigate])
+
+  // Пока пользователь не определен, можно показать пустоту или лоадер
   if (!currentUser) {
-    navigate('/login', { replace: true })
     return null
   }
 
-  const handleLogout = () => {
-    logout() // очищает токены и Zustand
-    navigate('/login', { replace: true }) // перенаправляем на страницу входа
-    // replace: true убирает "/chats" из истории, чтобы кнопка "Назад" не возвращала обратно
+  const handleChatClick = (chatId: number) => {
+    navigate(`/chats/${chatId}`)
   }
 
   if (isLoading) return <ChatsSkeleton />
   if (isError) return <ErrorView onRetry={refetch} />
   if (!chats || chats.length === 0) return <EmptyView />
+
   return (
-      <div className="flex flex-col h-full">
-      {/* Хедер с именем пользователя и кнопкой выхода */}
+    <div className="relative flex flex-col h-full">
       <header className="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">{currentUser?.username}</h2>
-        <button onClick={handleLogout} className="text-sm text-red-500">Выйти</button>
+        <h2 className="text-lg font-semibold">{currentUser.username}</h2>
+        <button onClick={logout} className="text-sm text-red-500">Выйти</button>
       </header>
       <ul className="flex-1 overflow-y-auto">
         {chats.map(chat => (
           <ChatListItem
             key={chat.id}
             chat={chat}
-            currentUserId={currentUser!.id}
+            currentUserId={currentUser.id}
+            onlineUsers={onlineUsers}
             onPress={() => handleChatClick(chat.id)}
           />
         ))}
       </ul>
-      <footer>
-        <button
-          onClick={() => navigate('/search')}
-          className="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg">
-          + Новый чат
-        </button>
-      </footer>
+      <button
+        onClick={() => navigate('/search')}
+        className="absolute bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-blue-600 active:scale-95 transition-transform"
+      >
+        +
+      </button>
     </div>
   )
 }
