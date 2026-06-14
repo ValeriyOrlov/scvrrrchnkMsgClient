@@ -67,7 +67,7 @@ export default function MessageBubble({ message, isOwn, chatId }: Props) {
 
         {isOwn && !isEditing && (
           <div
-            className={`absolute -top-2 right-0 flex gap-1 bg-white shadow-md rounded-full px-2 py-0.5 transition-opacity duration-200 ${
+            className={`absolute -top-5 right-0 flex gap-1 bg-white shadow-md rounded-full px-4 py-2 transition-opacity duration-200 ${
               showActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 hidden md:flex'
             }`}
           >
