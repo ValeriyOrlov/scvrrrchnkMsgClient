@@ -39,9 +39,9 @@ export default function SearchPage() {
   }
 
   return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full p-4 gap-2">
       {/* Хедер с полем поиска */}
-      <header className="p-4 border-b border-gray-200">
+      <header className="border-b border-gray-200">
         <input
           type="text"
           placeholder="Поиск пользователей..."
