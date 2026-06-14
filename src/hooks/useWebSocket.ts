@@ -22,24 +22,21 @@ export function useWebSocket() {
 
     ws.onopen = () => console.log('WebSocket connected')
     ws.onmessage = (event) => {
-        console.log('>>> RAW WS MESSAGE:', event.data)
-
       try {
         const data = JSON.parse(event.data)
         if (data.type === 'chat_message') {
-          const chatId = data.message?.chat_id;
-          if (chatId) {
-            console.log('>>> INVALIDATING MESSAGES for chat', chatId);
-            queryClient.invalidateQueries({ queryKey: ['messages', chatId], exact: false });
-            queryClient.invalidateQueries({ queryKey: ['chats'] });
-          }
+          queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
+          queryClient.invalidateQueries({ queryKey: ['chats'] })
         } else if (data.type === 'message_updated' || data.type === 'message_deleted') {
+          console.log(data.type)
           const chatId = data.message?.chat_id || data.chat_id
           if (chatId) {
             queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'user_status') {
+            console.log('Received user_status:', data)
+
           queryClient.setQueryData(['onlineUsers'], (old: number[] = []) => {
             if (data.online) {
               return [...new Set([...old, data.user_id])]
@@ -61,13 +58,29 @@ export function useWebSocket() {
     }
   }, [queryClient])
 
-  // Единственное подключение при монтировании
+// Подключаемся при монтировании, если есть токен
   useEffect(() => {
-    connect()
+    const token = useAuthStore.getState().accessToken
+    if (token) {
+      connect()
+    }
     return () => {
       clearTimeout(reconnectTimeoutRef.current)
       socketRef.current?.close()
     }
+  }, [connect])
+
+  // Следим за изменением токена (логин/логаут)
+  useEffect(() => {
+    const unsubscribe = useAuthStore.subscribe((state, prevState) => {
+      if (state.accessToken && !prevState.accessToken) {
+        socketRef.current?.close()
+        connect()
+      } else if (!state.accessToken && prevState.accessToken) {
+        socketRef.current?.close()
+      }
+    })
+    return unsubscribe
   }, [connect])
 
   return { sendMessage }
