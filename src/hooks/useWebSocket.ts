@@ -1,6 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
+import { useTypingStore } from '../store/typingStore'
+
+let socketCounter = 0
 
 export function useWebSocket() {
   const queryClient = useQueryClient()
@@ -9,7 +12,10 @@ export function useWebSocket() {
 
   const sendMessage = useCallback((data: any) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
+      console.log(`Sending on WS #${(socketRef.current as any).__id}:`, data)
       socketRef.current.send(JSON.stringify(data))
+    } else {
+      console.warn('WebSocket not open, readyState:', socketRef.current?.readyState)
     }
   }, [])
 
@@ -17,10 +23,19 @@ export function useWebSocket() {
     const token = useAuthStore.getState().accessToken
     if (!token) return
 
-    const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}`)
+    // Закрываем предыдущее соединение, если оно ещё живо
+    if (socketRef.current) {
+      console.log('Closing previous WS')
+      socketRef.current.close()
+      socketRef.current = null
+    }
+
+const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
+(ws as any).__id = ++socketCounter;
+console.log(`WS created #${(ws as any).__id}`);
     socketRef.current = ws
 
-    ws.onopen = () => console.log('WebSocket connected')
+console.log(`WS #${(ws as any).__id} connected`);
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
@@ -28,15 +43,12 @@ export function useWebSocket() {
           queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
           queryClient.invalidateQueries({ queryKey: ['chats'] })
         } else if (data.type === 'message_updated' || data.type === 'message_deleted') {
-          console.log(data.type)
           const chatId = data.message?.chat_id || data.chat_id
           if (chatId) {
             queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'user_status') {
-            console.log('Received user_status:', data)
-
           queryClient.setQueryData(['onlineUsers'], (old: number[] = []) => {
             if (data.online) {
               return [...new Set([...old, data.user_id])]
@@ -44,37 +56,40 @@ export function useWebSocket() {
               return old.filter(id => id !== data.user_id)
             }
           })
+        } else if (data.type === 'typing') {
+          console.log('Received typing:', data)
+          const { chat_id, user_id } = data
+          useTypingStore.getState().setTyping(chat_id, user_id, true)
+          setTimeout(() => {
+            useTypingStore.getState().setTyping(chat_id, user_id, false)
+          }, 3000)
         }
       } catch (err) {
         console.error('Invalid WS message', err)
       }
     }
     ws.onclose = () => {
-      console.log('WebSocket disconnected')
+      console.log(`WS #${(ws as any).__id} disconnected`)
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000)
     }
     ws.onerror = (error) => {
-      console.error('WebSocket error', error)
+      console.error(`WS #${(ws as any).__id} error`, error)
     }
   }, [queryClient])
 
-// Подключаемся при монтировании, если есть токен
+  // Первичное подключение при монтировании
   useEffect(() => {
-    const token = useAuthStore.getState().accessToken
-    if (token) {
-      connect()
-    }
+    connect()
     return () => {
       clearTimeout(reconnectTimeoutRef.current)
       socketRef.current?.close()
     }
   }, [connect])
 
-  // Следим за изменением токена (логин/логаут)
+  // Переподключение при изменении токена (логин/логаут)
   useEffect(() => {
     const unsubscribe = useAuthStore.subscribe((state, prevState) => {
       if (state.accessToken && !prevState.accessToken) {
-        socketRef.current?.close()
         connect()
       } else if (!state.accessToken && prevState.accessToken) {
         socketRef.current?.close()
