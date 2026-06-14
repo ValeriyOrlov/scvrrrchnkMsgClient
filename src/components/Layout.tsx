@@ -9,7 +9,7 @@ export default function Layout() {
 
   return (
     <WebSocketContext.Provider value={{ sendMessage }}>
-      <div className="max-w-lg mx-auto min-h-screen bg-gray-50 p-4">
+      <div className="max-w-lg mx-auto h-dvh bg-gray-50 overflow-hidden">
         <Outlet />
       </div>
     </WebSocketContext.Provider>
