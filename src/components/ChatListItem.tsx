@@ -7,17 +7,19 @@ interface ChatListItemProps {
   onlineUsers: number[];
 }
 
-// Функция для очистки превью сообщения от маркера цитаты
-function cleanMessagePreview(text: string): string {
-  // Ищем маркер цитаты вида "> [reply:123:Имя] текст\n\n"
-  const match = text.match(/^> \[reply:\d+:.+?\] .+?\n\n/);
+// Удаляет маркер цитаты, возвращает чистый ответ (или весь текст, если цитаты нет)
+function cleanReplyMarker(text: string): string {
+  const match = text.match(/^> \[reply:\d+:.+?\] (.+?)\n\n/);
   if (match) {
-    // Удаляем маркер и возвращаем текст ответа (обрезаем до 50 символов)
-    const answer = text.slice(match[0].length);
-    return '↩️ ' + (answer.length > 50 ? answer.slice(0, 50) + '...' : answer);
+    return '↩️ ' + match[1].trim();
   }
-  // Если цитаты нет, возвращаем исходный текст (тоже обрезаем для длинных сообщений)
-  return text.length > 50 ? text.slice(0, 50) + '...' : text;
+  return text;
+}
+
+// Форматирует время в чч:мм
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: ChatListItemProps) {
@@ -33,6 +35,18 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
   }
 
   const avatarLetter = displayName.charAt(0).toUpperCase();
+  // Вычисляем время последнего сообщения (если есть)
+  let lastTime = '';
+  let wasEdited = false;
+  let messagePreview = '';
+  let senderName = '';
+
+  if (chat.last_message) {
+    lastTime = formatTime(chat.last_message.updated_at); // показываем время последнего изменения
+    wasEdited = chat.last_message.updated_at !== chat.last_message.created_at;
+    messagePreview = cleanReplyMarker(chat.last_message.content);
+    senderName = chat.last_message.sender.username;
+  }
 
   return (
     <li
@@ -49,10 +63,15 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{displayName}</p>
         {chat.last_message ? (
-          <p className="text-sm text-gray-500 truncate">
-            <span className="font-semibold">{chat.last_message.sender.username}: </span>
-            {cleanMessagePreview(chat.last_message.content)}
-          </p>
+          <div className="flex justify-between items-baseline gap-1 text-sm text-gray-500">
+            <span className="truncate min-w-0">
+              <span className="font-semibold">{senderName}: </span>
+              {messagePreview}
+            </span>
+            <span className="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">
+              {lastTime}{wasEdited && <span className="italic"> (ред.)</span>}
+            </span>
+          </div>
         ) : (
           <p className="text-sm text-gray-400 truncate">Нет сообщений</p>
         )}
