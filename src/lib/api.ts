@@ -46,3 +46,6 @@ export const deleteMessage = (chatId: number, messageId: number) =>
 
 export const getOnlineUsers = () =>
   messengerApi.get('/online').then(res => res.data.online)
+
+export const getMessageById = (id: number) =>
+  messengerApi.get<Message>(`/messages/${id}`).then(res => res.data)

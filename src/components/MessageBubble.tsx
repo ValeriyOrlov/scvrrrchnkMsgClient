@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useDeleteMessage } from '../hooks/useDeleteMessage'
 import type { Message } from '../types'
+import { getMessageById } from '../lib/api'
 
 interface Props {
   message: Message
@@ -33,28 +34,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   const [showActions, setShowActions] = useState(false)
   const deleteMutation = useDeleteMessage(chatId)
   const bubbleRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!showActions) return
-    const handleClick = (e: MouseEvent) => {
-      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
-        setShowActions(false)
-      }
-    }
-    document.addEventListener('click', handleClick)
-    return () => document.removeEventListener('click', handleClick)
-  }, [showActions])
-
-  const handleDelete = () => {
-    if (window.confirm('Удалить сообщение?')) {
-      deleteMutation.mutate(message.id)
-      setShowActions(false)
-    }
-  }
-
-  const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const editingTime = new Date(message.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const wasEdited = message.updated_at !== message.created_at
+  const [fetchedQuotedMessage, setFetchedQuotedMessage] = useState<Message | null>(null)
 
   // Парсинг маркера цитаты
   let quoteAuthor = ''
@@ -69,10 +49,50 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
     replyTargetId = parseInt(replyMatch[1])
     quoteAuthor = replyMatch[2]
     replyMarker = replyMatch[0]
-    quoteText = cleanReplyText(replyMatch[3].trim())   // <-- применяем очистку
+    // quoteText будет использоваться только как fallback, если сообщение не найдено ни в messagesMap, ни через API
+    quoteText = replyMatch[3].trim()
     displayContent = message.content.slice(replyMatch[0].length)
     quotedMessage = messagesMap?.get(replyTargetId)
   }
+
+  // Вычисляем отображаемый текст цитаты ПОСЛЕ получения всех данных
+  const displayQuotedContent = quotedMessage
+    ? extractLastReply(quotedMessage.content)
+    : fetchedQuotedMessage
+      ? extractLastReply(fetchedQuotedMessage.content)
+      : (quoteText || 'Сообщение удалено')
+
+  // Эффект для закрытия меню при клике вне
+  useEffect(() => {
+    if (!showActions) return
+    const handleClick = (e: MouseEvent) => {
+      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
+        setShowActions(false)
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [showActions])
+
+  // Эффект для загрузки сообщения по ID, если его нет в текущем чате
+  useEffect(() => {
+    if (replyTargetId && !quotedMessage && !fetchedQuotedMessage) {
+      getMessageById(replyTargetId)
+        .then(msg => setFetchedQuotedMessage(msg))
+        .catch(() => setFetchedQuotedMessage(null))
+    }
+  }, [replyTargetId, quotedMessage, fetchedQuotedMessage])
+
+  const handleDelete = () => {
+    if (window.confirm('Удалить сообщение?')) {
+      deleteMutation.mutate(message.id)
+      setShowActions(false)
+    }
+  }
+
+  const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const editingTime = new Date(message.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const wasEdited = message.updated_at !== message.created_at
 
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
@@ -99,7 +119,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
             >
               <span className="font-semibold text-blue-600">{quoteAuthor}</span>
               <p className="text-gray-600 italic truncate max-w-[200px]">
-                {quotedMessage ? extractLastReply(quotedMessage.content) : 'Сообщение удалено'}
+                {displayQuotedContent}
               </p>
             </div>
           )}

@@ -1,5 +1,5 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { useMemo, useState, useRef } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useShallow } from 'zustand/shallow'
 import { useAuth } from '../hooks/useAuth'
 import { useChat } from '../hooks/useChat'
@@ -18,6 +18,17 @@ export default function ChatRoomPage() {
   const chatId = parseInt(id!)
   const { data: messages, isPending: isMessagesLoading, isError } = useMessages(chatId)
   const { data: chat, isPending: isChatLoading } = useChat(chatId)
+
+  const location = useLocation()
+
+  useEffect(() => {
+    const state = location.state as { forwardMessage?: Message } | null
+    if (state?.forwardMessage) {
+      setReplyTo(state.forwardMessage)
+      // очищаем состояние, чтобы не срабатывало повторно при обновлении
+      navigate('.', { replace: true, state: {} })
+    }
+  }, [location])
 
   // Состояния для цитирования и редактирования
   const [replyTo, setReplyTo] = useState<Message | null>(null)
@@ -75,6 +86,10 @@ export default function ChatRoomPage() {
     setEditMessage(null)
   }
 
+  const handleForward = (msg: Message) => {
+    navigate('/forward', { state: { message: msg, excludeChatId: chatId } })
+  }
+
   if (isChatLoading || isMessagesLoading) return <div className="p-4">Загрузка...</div>
   if (isError) return <div className="p-4 text-red-500">Ошибка загрузки сообщений</div>
 
@@ -116,6 +131,7 @@ export default function ChatRoomPage() {
             chatId={chatId}
             onReply={setReplyTo}
             onEdit={handleStartEdit}
+            onForward={handleForward}
             onScrollToReply={scrollToMessage}
             messageRefs={messageRefs}
           />
