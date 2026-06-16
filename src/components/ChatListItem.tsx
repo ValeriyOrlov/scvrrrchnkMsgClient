@@ -7,6 +7,19 @@ interface ChatListItemProps {
   onlineUsers: number[];
 }
 
+// Функция для очистки превью сообщения от маркера цитаты
+function cleanMessagePreview(text: string): string {
+  // Ищем маркер цитаты вида "> [reply:123:Имя] текст\n\n"
+  const match = text.match(/^> \[reply:\d+:.+?\] .+?\n\n/);
+  if (match) {
+    // Удаляем маркер и возвращаем текст ответа (обрезаем до 50 символов)
+    const answer = text.slice(match[0].length);
+    return '↩️ ' + (answer.length > 50 ? answer.slice(0, 50) + '...' : answer);
+  }
+  // Если цитаты нет, возвращаем исходный текст (тоже обрезаем для длинных сообщений)
+  return text.length > 50 ? text.slice(0, 50) + '...' : text;
+}
+
 export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: ChatListItemProps) {
   let displayName: string;
   let isOnline = false;
@@ -38,7 +51,7 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
         {chat.last_message ? (
           <p className="text-sm text-gray-500 truncate">
             <span className="font-semibold">{chat.last_message.sender.username}: </span>
-            {chat.last_message.content}
+            {cleanMessagePreview(chat.last_message.content)}
           </p>
         ) : (
           <p className="text-sm text-gray-400 truncate">Нет сообщений</p>
