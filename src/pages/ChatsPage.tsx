@@ -38,6 +38,23 @@ export default function ChatsPage() {
   if (isError) return <ErrorView onRetry={refetch} />
   if (!chats || chats.length === 0) return <EmptyView />
 
+  // сортировка чатов по времени
+
+  const sortedChats = [...chats].sort((a, b) => {
+  // Извлекаем даты последних сообщений (ISO‑строки)
+    const aDate = a.last_message?.created_at ?? ''
+    const bDate = b.last_message?.created_at ?? ''
+
+    // Сравниваем: сначала идут чаты с более свежими сообщениями
+    if (aDate && bDate) {
+      return bDate.localeCompare(aDate) // по убыванию
+    }
+    // Если сообщение есть только у одного — он выше
+    if (aDate && !bDate) return -1
+    if (!aDate && bDate) return 1
+    // Если у обоих нет сообщений — сортируем по id чата (больший id = новее)
+    return b.id - a.id
+  })
   return (
     <div className="relative flex flex-col h-full">
       <header className="p-4 border-b border-gray-200 flex justify-between items-center">
@@ -45,7 +62,7 @@ export default function ChatsPage() {
         <button onClick={logout} className="text-sm text-red-500">Выйти</button>
       </header>
       <ul className="flex-1 overflow-y-auto">
-        {chats.map(chat => (
+        {sortedChats.map(chat => (
           <ChatListItem
             key={chat.id}
             chat={chat}
