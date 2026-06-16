@@ -19,6 +19,11 @@ export default function ChatsPage() {
     staleTime: Infinity,
   })
 
+  // При монтировании компонента принудительно обновляем список чатов
+  useEffect(() => {
+    refetch()
+  }, [refetch])
+
   useEffect(() => {
     if (!currentUser) {
       navigate('/login', { replace: true })
