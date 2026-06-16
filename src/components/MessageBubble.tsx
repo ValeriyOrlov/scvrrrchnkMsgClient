@@ -13,11 +13,6 @@ interface Props {
   onScrollToReply?: (messageId: number) => void
   messagesMap?: Map<number, Message>
 }
-// Вспомогательная функция для очистки цитируемого текста от вложенных маркеров
-function cleanReplyText(text: string): string {
-  const match = text.match(/^> \[reply:\d+:.+?\] (.+?)(?:\n\n|$)/)
-  return match ? match[1].trim() : text.trim()
-}
 
 // Извлекает последний ответ, игнорируя все маркеры цитат
 function extractLastReply(content: string): string {
