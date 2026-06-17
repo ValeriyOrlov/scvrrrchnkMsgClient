@@ -14,7 +14,6 @@ interface Props {
   messagesMap?: Map<number, Message>
 }
 
-// Извлекает последний ответ, игнорируя все маркеры цитат
 function extractLastReply(content: string): string {
   const parts = content.split('\n\n')
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -22,11 +21,12 @@ function extractLastReply(content: string): string {
       return parts[i].trim()
     }
   }
-  return content.trim() // fallback
+  return content.trim()
 }
 
 export default function MessageBubble({ message, isOwn, chatId, onReply, onForward, onEdit, onScrollToReply, messagesMap }: Props) {
   const [showActions, setShowActions] = useState(false)
+  const [menuBelow, setMenuBelow] = useState(true) // true = меню снизу, false = сверху
   const deleteMutation = useDeleteMessage(chatId)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const [fetchedQuotedMessage, setFetchedQuotedMessage] = useState<Message | null>(null)
@@ -44,20 +44,18 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
     replyTargetId = parseInt(replyMatch[1])
     quoteAuthor = replyMatch[2]
     replyMarker = replyMatch[0]
-    // quoteText будет использоваться только как fallback, если сообщение не найдено ни в messagesMap, ни через API
     quoteText = replyMatch[3].trim()
     displayContent = message.content.slice(replyMatch[0].length)
     quotedMessage = messagesMap?.get(replyTargetId)
   }
 
-  // Вычисляем отображаемый текст цитаты ПОСЛЕ получения всех данных
   const displayQuotedContent = quotedMessage
     ? extractLastReply(quotedMessage.content)
     : fetchedQuotedMessage
       ? extractLastReply(fetchedQuotedMessage.content)
       : (quoteText || 'Сообщение удалено')
 
-  // Эффект для закрытия меню при клике вне
+  // Закрытие меню при клике вне
   useEffect(() => {
     if (!showActions) return
     const handleClick = (e: MouseEvent) => {
@@ -69,7 +67,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
     return () => document.removeEventListener('click', handleClick)
   }, [showActions])
 
-  // Эффект для загрузки сообщения по ID, если его нет в текущем чате
+  // Загрузка сообщения по ID, если его нет в текущем чате
   useEffect(() => {
     if (replyTargetId && !quotedMessage && !fetchedQuotedMessage) {
       getMessageById(replyTargetId)
@@ -77,6 +75,20 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
         .catch(() => setFetchedQuotedMessage(null))
     }
   }, [replyTargetId, quotedMessage, fetchedQuotedMessage])
+
+  // Определяем, поместится ли меню снизу
+  const toggleMenu = () => {
+    if (!showActions) {
+      // Перед открытием проверяем положение
+      const rect = bubbleRef.current?.getBoundingClientRect()
+      if (rect) {
+        const spaceBelow = window.innerHeight - rect.bottom
+        // 150px — примерная высота меню (список из 4 пунктов)
+        setMenuBelow(spaceBelow >= 150)
+      }
+    }
+    setShowActions(!showActions)
+  }
 
   const handleDelete = () => {
     if (window.confirm('Удалить сообщение?')) {
@@ -89,6 +101,33 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   const editingTime = new Date(message.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const wasEdited = message.updated_at !== message.created_at
 
+  // Пункты меню
+  const menuItems = (
+    <div className="absolute left-1/2 -translate-x-1/2 bg-white shadow-lg rounded-2xl py-2 px-1 text-sm z-10 whitespace-nowrap"
+         style={{ [menuBelow ? 'top' : 'bottom']: 'calc(100% + 4px)' }}>
+      <button onClick={(e) => { e.stopPropagation(); onReply?.(message); setShowActions(false); }}
+              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
+        ↩️ Ответить
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); onForward?.(message); setShowActions(false); }}
+              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
+        ↪️ Переслать
+      </button>
+      {isOwn && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); onEdit?.(message); setShowActions(false); }}
+                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
+            ✏️ Редактировать
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-red-500">
+            🗑️ Удалить
+          </button>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
       {!isOwn && (
@@ -99,7 +138,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
 
       <div ref={bubbleRef} className="relative max-w-[75%]">
         <div
-          onClick={() => setShowActions(!showActions)}
+          onClick={toggleMenu}
           className={`px-4 py-2 rounded-2xl cursor-pointer ${
             isOwn ? 'bg-blue-500 text-white rounded-br-md' : 'bg-gray-200 text-gray-900 rounded-bl-md'
           } ${showActions ? 'ring-2 ring-blue-300' : ''}`}
@@ -126,18 +165,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
           </div>
         </div>
 
-        {showActions && (
-          <div className="absolute -top-10 right-0 flex gap-1 bg-white shadow-md rounded-full px-4 py-2 transition-opacity duration-200 z-10">
-            <button onClick={(e) => { e.stopPropagation(); onReply?.(message); setShowActions(false); }} className="text-sm text-gray-600 hover:text-blue-500" title="Ответить">↩️</button>
-            <button onClick={(e) => { e.stopPropagation(); onForward?.(message); setShowActions(false); }} className="text-sm text-gray-600 hover:text-green-500" title="Переслать">↪️</button>
-            {isOwn && (
-              <>
-                <button onClick={(e) => { e.stopPropagation(); onEdit?.(message); setShowActions(false); }} className="text-sm text-gray-600 hover:text-blue-500" title="Редактировать">✏️</button>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(); }} className="text-sm text-gray-600 hover:text-red-500" title="Удалить">🗑️</button>
-              </>
-            )}
-          </div>
-        )}
+        {showActions && menuItems}
       </div>
 
       {isOwn && (
