@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.ts'
 import { useChat } from '../hooks/useChat.ts'
 import { searchUsers, addMembersToChat, leaveChat } from '../lib/api.ts'
 import type { User } from '../types/index.ts'
+import ConfirmModal from '../components/ConfirmModal.tsx'
 
 export default function ChatInfoPage() {
   const { id } = useParams<{ id: string }>()
@@ -13,6 +14,8 @@ export default function ChatInfoPage() {
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
   const { data: chat, isLoading } = useChat(chatId)
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+
 
   const [showSearch, setShowSearch] = useState(false)
   const [searchResults, setSearchResults] = useState<User[]>([])
@@ -59,16 +62,19 @@ export default function ChatInfoPage() {
     ? chat.members?.find(m => m.user?.id !== currentUser?.id)?.user?.username || 'Приватный чат'
     : chat.chat_name || 'Группа'
 
-  const handleLeaveChat = async () => {
-  if (!confirm('Вы уверены, что хотите покинуть чат?')) return
-  try {
-    await leaveChat(chatId)
-    queryClient.invalidateQueries({ queryKey: ['chats'] })
-    navigate('/chats', { replace: true })
-  } catch (err) {
-    console.error('Leave chat failed', err)
+  const handleLeaveChat = () => {
+    setShowLeaveConfirm(true)
   }
-}
+
+  const confirmLeave = async () => {
+    try {
+      await leaveChat(chatId)
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      navigate('/chats', { replace: true })
+    } catch (err) {
+      console.error('Leave chat failed', err)
+    }
+  }
   
   return (
     <div className="flex flex-col h-full">
@@ -92,7 +98,7 @@ export default function ChatInfoPage() {
         {chat.type === 'group' && (
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+            className="mt-4 w-full bg-blue-500 text-white px-4 py-2 rounded"
           >
             Добавить участников
           </button>
@@ -145,6 +151,14 @@ export default function ChatInfoPage() {
           Покинуть чат
         </button>
       </div>
+      <ConfirmModal
+        isOpen={showLeaveConfirm}
+        title="Покинуть чат?"
+        message="Вы больше не будете участником этого чата и не сможете читать новые сообщения."
+        confirmLabel="Покинуть"
+        onConfirm={confirmLeave}
+        onCancel={() => setShowLeaveConfirm(false)}
+      />
     </div>
   )
 }

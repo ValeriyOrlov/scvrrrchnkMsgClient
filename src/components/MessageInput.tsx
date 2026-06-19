@@ -123,7 +123,7 @@ export default function MessageInput({ chatId, replyTo, onCancelReply, editMessa
           disabled={isPending || !text.trim()}
           className="bg-blue-500 text-white px-4 py-2 rounded-full disabled:opacity-50 flex-shrink-0"
         >
-          {isPending ? '...' : editMessage ? 'Сохранить' : 'Отправить'}
+          {isPending ? '...' : editMessage ? 'Сохранить' : 'Чирикнуть'}
         </button>
       </div>
     </>

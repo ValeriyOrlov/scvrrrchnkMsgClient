@@ -49,3 +49,6 @@ export const getOnlineUsers = () =>
 
 export const getMessageById = (id: number) =>
   messengerApi.get<Message>(`/messages/${id}`).then(res => res.data)
+
+export const markAsRead = (chatId: number, lastReadMessageId: number) =>
+  messengerApi.put(`/chats/${chatId}/read`, { last_read_message_id: lastReadMessageId })

@@ -10,6 +10,7 @@ export interface ChatMember {
   role: 'admin' | 'member'
   joined_at: string
   user: User
+  last_read_message_id: number
 }
 
 export interface Chat {

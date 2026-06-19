@@ -49,6 +49,7 @@ console.log(`WS #${(ws as any).__id} connected`);
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'user_status') {
+          console.log(data.online)
           queryClient.setQueryData(['onlineUsers'], (old: number[] = []) => {
             if (data.online) {
               return [...new Set([...old, data.user_id])]
@@ -63,6 +64,9 @@ console.log(`WS #${(ws as any).__id} connected`);
           setTimeout(() => {
             useTypingStore.getState().setTyping(chat_id, user_id, false)
           }, 3000)
+        } else if (data.type === 'messages_read') {
+          // Инвалидируем кэш чатов, чтобы перезапросить список и обновить last_read_message_id
+          queryClient.invalidateQueries({ queryKey: ['chats'] })
         }
       } catch (err) {
         console.error('Invalid WS message', err)

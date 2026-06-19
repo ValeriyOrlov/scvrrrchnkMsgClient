@@ -7,7 +7,6 @@ interface ChatListItemProps {
   onlineUsers: number[];
 }
 
-// Удаляет маркер цитаты, возвращает чистый ответ (или весь текст, если цитаты нет)
 function cleanReplyMarker(text: string): string {
   const match = text.match(/^> \[reply:\d+:.+?\] (.+?)\n\n/);
   if (match) {
@@ -16,7 +15,6 @@ function cleanReplyMarker(text: string): string {
   return text;
 }
 
-// Форматирует время в чч:мм
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -35,18 +33,24 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
   }
 
   const avatarLetter = displayName.charAt(0).toUpperCase();
-  // Вычисляем время последнего сообщения (если есть)
+
   let lastTime = '';
   let wasEdited = false;
   let messagePreview = '';
   let senderName = '';
 
   if (chat.last_message) {
-    lastTime = formatTime(chat.last_message.updated_at); // показываем время последнего изменения
+    lastTime = formatTime(chat.last_message.updated_at);
     wasEdited = chat.last_message.updated_at !== chat.last_message.created_at;
     messagePreview = cleanReplyMarker(chat.last_message.content);
     senderName = chat.last_message.sender.username;
   }
+
+  // Определяем непрочитанные сообщения
+  const currentMember = chat.members?.find(m => m.user_id === currentUserId)
+  const lastReadId = currentMember?.last_read_message_id ?? 0
+  const lastMessageId = chat.last_message?.id ?? 0
+  const hasUnread = lastMessageId > lastReadId
 
   return (
     <li
@@ -61,11 +65,14 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
         {avatarLetter}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{displayName}</p>
+        <div className="flex items-center gap-2">
+          <p className={`truncate ${hasUnread ? 'font-bold text-black' : 'font-medium'}`}>{displayName}</p>
+          {hasUnread && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
+        </div>
         {chat.last_message ? (
           <div className="flex justify-between items-baseline gap-1 text-sm text-gray-500">
             <span className="truncate min-w-0">
-              <span className="font-semibold">{senderName}: </span>
+              <span className={hasUnread ? 'font-semibold text-gray-700' : 'font-semibold'}>{senderName}: </span>
               {messagePreview}
             </span>
             <span className="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">

@@ -9,6 +9,7 @@ import MessageList from '../components/MessageList'
 import MessageInput from '../components/MessageInput'
 import bgPattern from '../assets/images/messages-box-background-blue.jpg'
 import { useTypingStore } from '../store/typingStore'
+import { markAsRead } from '../lib/api'
 import type { Message } from '../types'
 
 export default function ChatRoomPage() {
@@ -25,7 +26,6 @@ export default function ChatRoomPage() {
     const state = location.state as { forwardMessage?: Message } | null
     if (state?.forwardMessage) {
       setReplyTo(state.forwardMessage)
-      // очищаем состояние, чтобы не срабатывало повторно при обновлении
       navigate('.', { replace: true, state: {} })
     }
   }, [location])
@@ -42,6 +42,13 @@ export default function ChatRoomPage() {
   )
 
   const reversedMessages = useMemo(() => messages ? [...messages].reverse() : [], [messages])
+
+  // Автоматически отмечаем чат как прочитанный при появлении сообщений
+  useEffect(() => {
+    if (!messages || messages.length === 0) return
+    const maxId = Math.max(...messages.map(m => m.id))
+    markAsRead(chatId, maxId).catch(console.error)
+  }, [messages, chatId])
 
   const otherTypingUsers = useMemo(
     () => typingUsers.filter((id: number) => id !== user?.id),
@@ -74,13 +81,12 @@ export default function ChatRoomPage() {
   }
 
   const handleStartEdit = (msg: Message) => {
-    setReplyTo(null)            // цитирование и редактирование несовместимы
+    setReplyTo(null)
     setEditMessage(msg)
   }
 
   const handleCancelEdit = () => setEditMessage(null)
 
-  // Колбэк сохранения редактированного сообщения
   const handleSaveEdit = (messageId: number, content: string) => {
     updateMutation.mutate({ messageId, content })
     setEditMessage(null)

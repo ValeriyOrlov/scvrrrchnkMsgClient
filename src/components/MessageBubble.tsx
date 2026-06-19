@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useDeleteMessage } from '../hooks/useDeleteMessage'
 import type { Message } from '../types'
 import { getMessageById } from '../lib/api'
+import ConfirmModal from './ConfirmModal'
 
 interface Props {
   message: Message
@@ -30,6 +31,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   const deleteMutation = useDeleteMessage(chatId)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const [fetchedQuotedMessage, setFetchedQuotedMessage] = useState<Message | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Парсинг маркера цитаты
   let quoteAuthor = ''
@@ -91,10 +93,13 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   }
 
   const handleDelete = () => {
-    if (window.confirm('Удалить сообщение?')) {
-      deleteMutation.mutate(message.id)
-      setShowActions(false)
-    }
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDelete = () => {
+    deleteMutation.mutate(message.id)
+    setShowDeleteConfirm(false)
+    setShowActions(false)
   }
 
   const time = new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -173,6 +178,13 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
           {message.sender.username.charAt(0).toUpperCase()}
         </div>
       )}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        title="Удалить сообщение?"
+        message="Это действие нельзя отменить. Сообщение будет удалено для всех участников."
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }
