@@ -26,6 +26,11 @@ export interface Message {
   chat_id: number
   sender_id: number
   content: string
+  encrypted_content?: string
+  encrypted_key_sender?: string
+  encrypted_key_recipient?: string
+  iv?: string
+  auth_tag?: string
   created_at: string
   updated_at: string
   sender: User

@@ -3,19 +3,31 @@ import useAuthStore, { isTokenExpired } from "../store/authStore";
 import { loginApi, registerApi } from "../lib/api";
 import authApi from "../lib/axios.ts"
 import { jwtDecode } from "jwt-decode";
+import { updatePublicKey } from "../lib/api";
+import { generateRSAKeyPair, savePrivateKey, getPrivateKey } from "../lib/crypto.ts";
 
 export function useAuth() {
   const { accessToken, user, setAuth, clearAuth } = useAuthStore()
   const intervalRef = useRef<number | undefined>(undefined)
 
-  const login = useCallback(async (email: string, password: string ) => {
+  const login = useCallback(async (email: string, password: string) => {
     const data = await loginApi(email, password)
     const payload: any = jwtDecode(data.access_token)
-    const user = {
-      id: payload.user_id,
-      username: payload.username,
-    }
+    const user = { id: payload.user_id, username: payload.username }
     setAuth(data.access_token, data.refresh_token, user)
+
+    // Проверяем, есть ли уже приватный ключ
+    const existingPrivateKey = getPrivateKey(user.id)
+    if (!existingPrivateKey) {
+      try {
+        const keypair = await generateRSAKeyPair()
+        savePrivateKey(user.id, keypair.privateKey)
+        await updatePublicKey(keypair.publicKey)
+        console.log('RSA keys generated and public key sent to server')
+      } catch (err) {
+        console.error('Failed to generate keys', err)
+      }
+    }
   }, [setAuth])
 
   const register = useCallback(async (email: string, username: string, password: string) => {

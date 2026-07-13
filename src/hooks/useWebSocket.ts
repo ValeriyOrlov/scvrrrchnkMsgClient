@@ -12,7 +12,7 @@ export function useWebSocket() {
 
   const sendMessage = useCallback((data: any) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      console.log(`Sending on WS #${(socketRef.current as any).__id}:`, data)
+      //console.log(`Sending on WS #${(socketRef.current as any).__id}:`, data)
       socketRef.current.send(JSON.stringify(data))
     } else {
       console.warn('WebSocket not open, readyState:', socketRef.current?.readyState)
@@ -37,11 +37,18 @@ console.log(`WS created #${(ws as any).__id}`);
 
 console.log(`WS #${(ws as any).__id} connected`);
     ws.onmessage = (event) => {
+        console.log('RAW WS data:', event.data)
+
       try {
         const data = JSON.parse(event.data)
+            console.log('Parsed WS data:', data)
+
         if (data.type === 'chat_message') {
-          queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
-          queryClient.invalidateQueries({ queryKey: ['chats'] })
+          const chatId = data.message?.chat_id
+          if (chatId) {
+            queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
+            queryClient.invalidateQueries({ queryKey: ['chats'] })
+          }
         } else if (data.type === 'message_updated' || data.type === 'message_deleted') {
           const chatId = data.message?.chat_id || data.chat_id
           if (chatId) {
@@ -49,8 +56,9 @@ console.log(`WS #${(ws as any).__id} connected`);
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'user_status') {
-          console.log(data.online)
+          //console.log(data.online)
           queryClient.setQueryData(['onlineUsers'], (old: number[] = []) => {
+            console.log('queryClient setQueryData - online users')
             if (data.online) {
               return [...new Set([...old, data.user_id])]
             } else {
@@ -58,7 +66,7 @@ console.log(`WS #${(ws as any).__id} connected`);
             }
           })
         } else if (data.type === 'typing') {
-          console.log('Received typing:', data)
+          //console.log('Received typing:', data)
           const { chat_id, user_id } = data
           useTypingStore.getState().setTyping(chat_id, user_id, true)
           setTimeout(() => {

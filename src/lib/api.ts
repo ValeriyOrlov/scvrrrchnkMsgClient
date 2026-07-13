@@ -52,3 +52,43 @@ export const getMessageById = (id: number) =>
 
 export const markAsRead = (chatId: number, lastReadMessageId: number) =>
   messengerApi.put(`/chats/${chatId}/read`, { last_read_message_id: lastReadMessageId })
+
+export const updatePublicKey = (publicKey: string) =>
+  messengerApi.put('/users/me/key', { public_key: publicKey }).then(res => res.data)
+
+export const getChatKeys = (chatId: number) =>
+  messengerApi.get<{ user_id: number; username: string; public_key: string }[]>(`/chats/${chatId}/keys`)
+    .then(res => res.data)
+
+export const sendEncryptedMessage = (
+  chatId: number,
+  content: string,
+  encryptedContent: string,
+  encryptedKeySender: string,
+  encryptedKeyRecipient: string,
+  iv: string,
+  authTag: string
+) =>
+  messengerApi.post(`/chats/${chatId}/messages`, {
+    content,
+    encrypted_content: encryptedContent,
+    encrypted_key_sender: encryptedKeySender,
+    encrypted_key_recipient: encryptedKeyRecipient,
+    iv,
+    auth_tag: authTag,
+  }).then(res => res.data)
+
+  export const updateEncryptedMessage = (
+    chatId: number,
+    messageId: number,
+    content: string,
+    encrypted: { encrypted_content: string; encrypted_key_sender: string; encrypted_key_recipient: string; iv: string; auth_tag: string }
+  ) =>
+    messengerApi.patch(`/chats/${chatId}/messages/${messageId}`, {
+      content,
+      encrypted_content: encrypted.encrypted_content,
+      encrypted_key_sender: encrypted.encrypted_key_sender,
+      encrypted_key_recipient: encrypted.encrypted_key_recipient,
+      iv: encrypted.iv,
+      auth_tag: encrypted.auth_tag,
+    }).then(res => res.data)

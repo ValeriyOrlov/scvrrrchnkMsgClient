@@ -11,6 +11,7 @@ import bgPattern from '../assets/images/messages-box-background-blue.jpg'
 import { useTypingStore } from '../store/typingStore'
 import { markAsRead } from '../lib/api'
 import type { Message } from '../types'
+import { getChatKeys } from '../lib/api'
 
 export default function ChatRoomPage() {
   const { id } = useParams<{ id: string }>()
@@ -79,6 +80,19 @@ export default function ChatRoomPage() {
     el.classList.add('ring-2', 'ring-blue-400')
     setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400'), 2000)
   }
+
+  const [chatKeys, setChatKeys] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (!chatId) return
+    getChatKeys(chatId)
+      .then(keys => {
+        console.log('Chat keys loaded:', keys) // ← добавьте этот лог
+        const map: Record<number, string> = {}
+        keys.forEach(k => { map[k.user_id] = k.public_key })
+        setChatKeys(map)
+    }).catch(err => console.error('Failed to load chat keys', err))
+  }, [chatId])
 
   const handleStartEdit = (msg: Message) => {
     setReplyTo(null)
@@ -151,6 +165,7 @@ export default function ChatRoomPage() {
           editMessage={editMessage}
           onCancelEdit={handleCancelEdit}
           onSaveEdit={handleSaveEdit}
+          chatKeys={chatKeys}
         />
       </div>
     </div>

@@ -2,6 +2,9 @@ import { useRef, useState, useEffect } from 'react'
 import { useSendMessage } from '../hooks/useSendMessage'
 import { useUpdateMessage } from '../hooks/useUpdateMessage'
 import { useWS } from '../contexts/WebSocketContext'
+import { encryptForRecipientAndSelf } from '../lib/crypto'
+import useAuthStore from '../store/authStore'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Message } from '../types'
 
 interface Props {
@@ -11,6 +14,7 @@ interface Props {
   editMessage?: Message | null
   onCancelEdit?: () => void
   onSaveEdit?: (messageId: number, content: string) => void
+  chatKeys: Record<number, string>
 }
 
 function extractReplyText(content: string): string {
@@ -18,20 +22,18 @@ function extractReplyText(content: string): string {
   return match ? content.slice(match[0].length).trim() : content.trim()
 }
 
-export default function MessageInput({ chatId, replyTo, onCancelReply, editMessage, onCancelEdit, onSaveEdit }: Props) {
+export default function MessageInput({ chatId, replyTo, onCancelReply, editMessage, onCancelEdit, onSaveEdit, chatKeys }: Props) {
   const { sendMessage } = useWS()
-  console.log('sendMessage available:', !!sendMessage)
-
   const [text, setText] = useState('')
   const { mutate, isPending } = useSendMessage(chatId)
   const updateMutation = useUpdateMessage(chatId)
+  const currentUser = useAuthStore(state => state.user)
+  const queryClient = useQueryClient()
 
   const lastTypingSent = useRef(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [isOverflow, setIsOverflow] = useState(false)
 
-
-  // Фокус и установка текста при цитировании/редактировании
   useEffect(() => {
     if (editMessage) {
       const content = extractReplyText(editMessage.content)
@@ -42,47 +44,111 @@ export default function MessageInput({ chatId, replyTo, onCancelReply, editMessa
     }
   }, [replyTo, editMessage])
 
-  // Авторасширение высоты и управление скроллбаром
   useEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
-    textarea.style.height = 'auto' // сбрасываем, чтобы правильно рассчитать
-    const lineHeight = 24 // примерная высота строки в пикселях (зависит от шрифта)
+    textarea.style.height = 'auto'
+    const lineHeight = 24
     const maxHeight = lineHeight * 5
-    const newHeight = Math.min(textarea.scrollHeight, maxHeight)
     textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`
     setIsOverflow(textarea.scrollHeight > maxHeight)
   }, [text])
 
   const handleSend = () => {
-    if (!text.trim()) return
-    if (editMessage) {
-      let finalContent = text.trim()
-      const replyMatch = editMessage.content.match(/^> \[reply:\d+:.+?\] .+?\n\n/)
-      if (replyMatch) {
-        finalContent = replyMatch[0] + finalContent
-      }
-      updateMutation.mutate(
-        { messageId: editMessage.id, content: finalContent },
-        { onSuccess: () => { setText(''); onCancelEdit?.() } }
-      )
-    } else {
-      let finalContent = text.trim()
-      if (replyTo) {
-        const replyText = extractReplyText(replyTo.content)
-        finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${replyText}\n\n${finalContent}`
-      }
-      mutate(finalContent, {
-        onSuccess: () => { setText(''); onCancelReply?.() }
-      })
+    if (!text.trim() || !currentUser) return
+
+    let finalContent = text.trim()
+
+    if (!editMessage && replyTo) {
+      const replyText = extractReplyText(replyTo.content)
+      finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${replyText}\n\n${finalContent}`
     }
+
+if (editMessage) {
+  let contentToSave = text.trim()
+  const replyMatch = editMessage.content.match(/^> \[reply:\d+:.+?\] .+?\n\n/)
+  if (replyMatch) {
+    contentToSave = replyMatch[0] + contentToSave
+  }
+
+  // Шифруем новый текст так же, как при отправке
+  const myPublicKey = currentUser ? chatKeys[currentUser.id] : null
+  const otherKeys = Object.entries(chatKeys).filter(([uid]) => uid !== currentUser.id.toString())
+  let encryptedPayload = null
+  if (myPublicKey && otherKeys.length > 0) {
+    const recipientPublicKey = otherKeys[0][1]
+    try {
+      encryptedPayload = encryptForRecipientAndSelf(contentToSave, recipientPublicKey, myPublicKey)
+    } catch (err) {
+      console.error('Encryption failed', err)
+      return
+    }
+  }
+
+  updateMutation.mutate(
+    {
+      messageId: editMessage.id,
+      content: contentToSave,   // будет использован для кэша, но на сервер не попадёт
+      encrypted: encryptedPayload ? {
+        encrypted_content: encryptedPayload.encrypted_content,
+        encrypted_key_sender: encryptedPayload.encrypted_key_sender,
+        encrypted_key_recipient: encryptedPayload.encrypted_key_recipient,
+        iv: encryptedPayload.iv,
+        auth_tag: encryptedPayload.auth_tag,
+      } : undefined,
+    },
+    { onSuccess: () => { setText(''); onCancelEdit?.() } }
+  )
+  return
+}
+
+    // Шифруем для получателя и для себя
+    const myPublicKey = currentUser ? chatKeys[currentUser.id] : null
+    const otherKeys = Object.entries(chatKeys).filter(([uid]) => uid !== currentUser.id.toString())
+    let encryptedPayload = null
+    if (myPublicKey && otherKeys.length > 0) {
+      const recipientPublicKey = otherKeys[0][1]
+      try {
+        encryptedPayload = encryptForRecipientAndSelf(finalContent, recipientPublicKey, myPublicKey)
+      } catch (err) {
+        console.error('Encryption failed', err)
+        return
+      }
+    }
+
+    // Добавляем сообщение в кэш мгновенно (без ожидания ответа сервера)
+   const tempMessage: Message = {
+      id: Date.now(),
+      chat_id: chatId,
+      sender_id: currentUser.id,
+      content: finalContent,
+      encrypted_content: encryptedPayload?.encrypted_content ?? '',
+      encrypted_key_sender: encryptedPayload?.encrypted_key_sender ?? '',
+      encrypted_key_recipient: encryptedPayload?.encrypted_key_recipient ?? '',
+      iv: encryptedPayload?.iv ?? '',
+      auth_tag: encryptedPayload?.auth_tag ?? '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: { id: currentUser.id, username: currentUser.username }
+    }
+    queryClient.setQueryData(['messages', chatId], (old: Message[] = []) => [...old, tempMessage])
+
+    mutate(
+      { content: finalContent, encrypted: encryptedPayload },
+      {
+        onSuccess: () => {
+          setText('')
+          onCancelReply?.()
+          queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
+        }
+      }
+    )
   }
 
   const handleTyping = () => {
     const now = Date.now()
     if (now - lastTypingSent.current > 2000) {
       lastTypingSent.current = now
-      console.log('Sending typing event')
       sendMessage({ type: 'typing', chat_id: chatId })
     }
   }
@@ -116,7 +182,7 @@ export default function MessageInput({ chatId, replyTo, onCancelReply, editMessa
           className={`flex-1 border border-gray-300 rounded-2xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${isOverflow ? 'overflow-y-auto' : 'overflow-y-hidden'}`}
           rows={1}
           disabled={isPending}
-          style={{ maxHeight: '120px' }} // fallback
+          style={{ maxHeight: '120px' }}
         />
         <button
           onClick={handleSend}

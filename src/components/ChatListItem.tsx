@@ -1,4 +1,6 @@
 import type { Chat } from "../types";
+import { getPrivateKey, decryptMessage } from '../lib/crypto'
+import useAuthStore from '../store/authStore'
 
 interface ChatListItemProps {
   chat: Chat;
@@ -23,6 +25,8 @@ function formatTime(dateStr: string): string {
 export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: ChatListItemProps) {
   let displayName: string;
   let isOnline = false;
+  const currentUser = useAuthStore(state => state.user)
+  const privateKey = currentUser ? getPrivateKey(currentUser.id) : null
 
   if (chat.type === 'private') {
     const otherMember = chat.members?.find(m => m.user?.id !== undefined && m.user.id !== currentUserId);
@@ -42,8 +46,41 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
   if (chat.last_message) {
     lastTime = formatTime(chat.last_message.updated_at);
     wasEdited = chat.last_message.updated_at !== chat.last_message.created_at;
-    messagePreview = cleanReplyMarker(chat.last_message.content);
     senderName = chat.last_message.sender.username;
+
+    // Пытаемся расшифровать, если есть зашифрованные поля и ключ
+    if (chat.last_message.content) {
+      // Открытый текст есть (старое сообщение или для отправителя)
+      messagePreview = cleanReplyMarker(chat.last_message.content);
+    } else if (
+      chat.last_message.encrypted_content &&
+      chat.last_message.iv &&
+      chat.last_message.auth_tag &&
+      privateKey
+    ) {
+      const encryptedKey =
+        chat.last_message.sender_id === currentUser?.id
+          ? chat.last_message.encrypted_key_sender
+          : chat.last_message.encrypted_key_recipient;
+      if (encryptedKey) {
+        const decrypted = decryptMessage(
+          chat.last_message.encrypted_content,
+          encryptedKey,
+          chat.last_message.iv,
+          chat.last_message.auth_tag,
+          privateKey
+        );
+        if (decrypted) {
+          messagePreview = cleanReplyMarker(decrypted);
+        } else {
+          messagePreview = 'Зашифрованное сообщение';
+        }
+      } else {
+        messagePreview = 'Зашифрованное сообщение';
+      }
+    } else if (chat.last_message.encrypted_content && !privateKey) {
+      messagePreview = 'Зашифрованное сообщение (нет ключа)';
+    }
   }
 
   // Определяем непрочитанные сообщения

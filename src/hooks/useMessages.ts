@@ -3,7 +3,7 @@ import { getMessages } from '../lib/api.ts'
 
 export function useMessages(chatId: number, limit = 50, offset = 0) {
   return useQuery({
-    queryKey: ['messages', chatId, limit, offset],
+    queryKey: ['messages', chatId],
     queryFn: () => getMessages(chatId, limit, offset),
     staleTime: 10_000,
     retry: 1,

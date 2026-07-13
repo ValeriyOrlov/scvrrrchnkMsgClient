@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDeleteMessage } from '../hooks/useDeleteMessage'
 import type { Message } from '../types'
 import { getMessageById } from '../lib/api'
 import ConfirmModal from './ConfirmModal'
+import { getPrivateKey, decryptMessage } from '../lib/crypto'
+import useAuthStore from '../store/authStore'
 
 interface Props {
   message: Message
@@ -27,27 +29,54 @@ function extractLastReply(content: string): string {
 
 export default function MessageBubble({ message, isOwn, chatId, onReply, onForward, onEdit, onScrollToReply, messagesMap }: Props) {
   const [showActions, setShowActions] = useState(false)
-  const [menuBelow, setMenuBelow] = useState(true) // true = меню снизу, false = сверху
+  const [menuBelow, setMenuBelow] = useState(true)
   const deleteMutation = useDeleteMessage(chatId)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const [fetchedQuotedMessage, setFetchedQuotedMessage] = useState<Message | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const currentUser = useAuthStore(state => state.user)
+  const privateKey = currentUser ? getPrivateKey(currentUser.id) : null
 
-  // Парсинг маркера цитаты
+  // 1. Расшифровываем (или берём открытый текст) базу сообщения
+const baseContent = useMemo(() => {
+  // Для своих сообщений всегда показываем content (открытый текст из кэша)
+  if (isOwn && message.content) {
+    return message.content
+  }
+  // Для чужих или если content пуст – расшифровываем
+  if (message.encrypted_content && message.iv && message.auth_tag && privateKey) {
+    const encryptedKey = isOwn
+      ? message.encrypted_key_sender
+      : message.encrypted_key_recipient
+    if (encryptedKey) {
+      const decrypted = decryptMessage(
+        message.encrypted_content,
+        encryptedKey,
+        message.iv,
+        message.auth_tag,
+        privateKey
+      )
+      return decrypted ?? 'Ошибка расшифровки'
+    }
+  }
+  return message.content || 'Сообщение'
+}, [message, isOwn, privateKey])
+
+  // 2. Парсим маркер цитаты и строим финальный отображаемый текст
   let quoteAuthor = ''
   let quoteText = ''
   let replyTargetId: number | null = null
-  let displayContent = message.content
   let quotedMessage: Message | undefined
-  let replyMarker = ''
 
-  const replyMatch = message.content.match(/^> \[reply:(\d+):(.+?)\] (.+?)\n\n/)
+  const replyMatch = baseContent.match(/^> \[reply:(\d+):(.+?)\] (.+?)\n\n/)
+  const displayContent = replyMatch
+    ? baseContent.slice(replyMatch[0].length)   // текст после цитаты
+    : baseContent
+
   if (replyMatch) {
     replyTargetId = parseInt(replyMatch[1])
     quoteAuthor = replyMatch[2]
-    replyMarker = replyMatch[0]
     quoteText = replyMatch[3].trim()
-    displayContent = message.content.slice(replyMatch[0].length)
     quotedMessage = messagesMap?.get(replyTargetId)
   }
 
@@ -78,23 +107,18 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
     }
   }, [replyTargetId, quotedMessage, fetchedQuotedMessage])
 
-  // Определяем, поместится ли меню снизу
   const toggleMenu = () => {
     if (!showActions) {
-      // Перед открытием проверяем положение
       const rect = bubbleRef.current?.getBoundingClientRect()
       if (rect) {
         const spaceBelow = window.innerHeight - rect.bottom
-        // 150px — примерная высота меню (список из 4 пунктов)
         setMenuBelow(spaceBelow >= 150)
       }
     }
     setShowActions(!showActions)
   }
 
-  const handleDelete = () => {
-    setShowDeleteConfirm(true)
-  }
+  const handleDelete = () => setShowDeleteConfirm(true)
 
   const confirmDelete = () => {
     deleteMutation.mutate(message.id)
@@ -106,7 +130,6 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   const editingTime = new Date(message.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const wasEdited = message.updated_at !== message.created_at
 
-  // Пункты меню
   const menuItems = (
     <div className="absolute left-1/2 -translate-x-1/2 bg-white shadow-lg rounded-2xl py-2 px-1 text-sm z-10 whitespace-nowrap"
          style={{ [menuBelow ? 'top' : 'bottom']: 'calc(100% + 4px)' }}>
@@ -150,10 +173,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
         >
           {replyTargetId && (
             <div
-              onClick={(e) => {
-                e.stopPropagation()
-                onScrollToReply?.(replyTargetId!)
-              }}
+              onClick={(e) => { e.stopPropagation(); onScrollToReply?.(replyTargetId!) }}
               className="bg-gray-100/70 border-l-2 border-blue-300 pl-2 pr-1 py-1 mb-2 rounded text-xs cursor-pointer hover:bg-gray-200 transition-colors"
             >
               <span className="font-semibold text-blue-600">{quoteAuthor}</span>
