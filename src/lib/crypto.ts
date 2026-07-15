@@ -97,3 +97,126 @@ export function decryptMessage(
     return null
   }
 }
+// генерация случайного Room Key (256 бит)
+export function generateRoomKey(): string {
+  return forge.util.bytesToHex(forge.random.getBytesSync(32))
+}
+
+// Шифрование Room Key для участника
+export function encryptRoomKey(roomKey: string, publicKeyPem: string): string {
+  const publicKey = forge.pki.publicKeyFromPem(publicKeyPem)
+  return forge.util.bytesToHex(publicKey.encrypt(forge.util.hexToBytes(roomKey), 'RSA-OAEP'))
+}
+
+// Расшифровка Room Key приватным ключом
+export function decryptRoomKey(encryptedKey: string, privateKeyPem: string): string {
+  const privateKey = forge.pki.privateKeyFromPem(privateKeyPem)
+  return forge.util.bytesToHex(privateKey.decrypt(forge.util.hexToBytes(encryptedKey), 'RSA-OAEP'))
+}
+
+/**
+ * Универсальная функция шифрования сообщения.
+ * Для личного чата использует индивидуальные RSA-ключи получателя и отправителя,
+ * для группового чата – симметричный Room Key (AES-GCM).
+ *
+ * @param plaintext - открытый текст сообщения
+ * @param chatType - тип чата ('private' или 'group')
+ * @param chatKeys - публичные ключи участников (для личного чата)
+ * @param currentUserId - ID текущего пользователя
+ * @param roomKey - расшифрованный Room Key (только для групповых чатов)
+ * @returns объект с зашифрованными полями, готовый для отправки на сервер
+ */
+
+export function encryptMessage(
+  plaintext: string,
+  chatType: string,
+  chatKeys: Record<number, string>,
+  currentUserId: number,
+  roomKey?: string | null
+): {
+  content: string
+  encrypted_content: string
+  encrypted_key_sender?: string
+  encrypted_key_recipient?: string
+  iv: string
+  auth_tag: string
+} {
+  // Групповой чат: используем Room Key
+  if (chatType === 'group' && roomKey) {
+    const iv = forge.random.getBytesSync(16)
+    const cipher = forge.cipher.createCipher('AES-GCM', forge.util.hexToBytes(roomKey))
+    cipher.start({ iv: forge.util.createBuffer(iv) })
+    cipher.update(forge.util.createBuffer(plaintext, 'utf8'))
+    cipher.finish()
+
+    return {
+      content: '', // открытый текст не храним на сервере
+      encrypted_content: forge.util.bytesToHex(cipher.output.getBytes()),
+      iv: forge.util.bytesToHex(iv),
+      auth_tag: forge.util.bytesToHex(cipher.mode.tag.getBytes()),
+    }
+  }
+
+  // Личный чат: используем RSA-ключи
+  if (chatType === 'private') {
+    const myPublicKey = chatKeys[currentUserId]
+    const otherKeys = Object.entries(chatKeys).filter(([uid]) => uid !== currentUserId.toString())
+
+    if (!myPublicKey || otherKeys.length === 0) {
+      // Нет ключей – возвращаем открытый текст (нешифрованное сообщение)
+      return {
+        content: plaintext,
+        encrypted_content: '',
+        iv: '',
+        auth_tag: '',
+      }
+    }
+
+    const recipientPublicKey = otherKeys[0][1]
+    const encrypted = encryptForRecipientAndSelf(plaintext, recipientPublicKey, myPublicKey)
+
+    return {
+      content: '', // открытый текст не сохраняем на сервере
+      encrypted_content: encrypted.encrypted_content,
+      encrypted_key_sender: encrypted.encrypted_key_sender,
+      encrypted_key_recipient: encrypted.encrypted_key_recipient,
+      iv: encrypted.iv,
+      auth_tag: encrypted.auth_tag,
+    }
+  }
+
+  // На всякий случай – незашифрованное сообщение
+  return {
+    content: plaintext,
+    encrypted_content: '',
+    iv: '',
+    auth_tag: '',
+  }
+}
+
+export function encryptWithRoomKey(plaintext: string, roomKeyHex: string): { encrypted_content: string; iv: string; auth_tag: string } {
+  const roomKey = forge.util.hexToBytes(roomKeyHex)
+  const iv = forge.random.getBytesSync(16)
+  const cipher = forge.cipher.createCipher('AES-GCM', roomKey)
+  cipher.start({ iv: forge.util.createBuffer(iv) })
+  cipher.update(forge.util.createBuffer(plaintext, 'utf8'))
+  cipher.finish()
+  return {
+    encrypted_content: forge.util.bytesToHex(cipher.output.getBytes()),
+    iv: forge.util.bytesToHex(iv),
+    auth_tag: forge.util.bytesToHex(cipher.mode.tag.getBytes()),
+  }
+}
+
+// Расшифровка текста с помощью Room Key (AES-GCM)
+export function decryptMessageWithRoomKey(encryptedContent: string, ivHex: string, authTagHex: string, roomKeyHex: string): string {
+  const roomKey = forge.util.hexToBytes(roomKeyHex)
+  const decipher = forge.cipher.createDecipher('AES-GCM', roomKey)
+  decipher.start({
+    iv: forge.util.createBuffer(forge.util.hexToBytes(ivHex)),
+    tag: forge.util.createBuffer(forge.util.hexToBytes(authTagHex)),
+  })
+  decipher.update(forge.util.createBuffer(forge.util.hexToBytes(encryptedContent)))
+  decipher.finish()
+  return decipher.output.toString()
+}

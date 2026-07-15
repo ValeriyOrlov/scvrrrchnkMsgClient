@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useSendMessage } from '../hooks/useSendMessage'
 import { useUpdateMessage } from '../hooks/useUpdateMessage'
 import { useWS } from '../contexts/WebSocketContext'
-import { encryptForRecipientAndSelf } from '../lib/crypto'
+import { encryptMessage } from '../lib/crypto'
 import useAuthStore from '../store/authStore'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Message } from '../types'
@@ -15,6 +15,8 @@ interface Props {
   onCancelEdit?: () => void
   onSaveEdit?: (messageId: number, content: string) => void
   chatKeys: Record<number, string>
+  roomKey?: string | null
+  chatType?: 'private' | 'group'
 }
 
 function extractReplyText(content: string): string {
@@ -22,7 +24,17 @@ function extractReplyText(content: string): string {
   return match ? content.slice(match[0].length).trim() : content.trim()
 }
 
-export default function MessageInput({ chatId, replyTo, onCancelReply, editMessage, onCancelEdit, onSaveEdit, chatKeys }: Props) {
+export default function MessageInput({
+  chatId,
+  replyTo,
+  onCancelReply,
+  editMessage,
+  onCancelEdit,
+  onSaveEdit,
+  chatKeys,
+  roomKey,
+  chatType,
+}: Props) {
   const { sendMessage } = useWS()
   const [text, setText] = useState('')
   const { mutate, isPending } = useSendMessage(chatId)
@@ -58,63 +70,36 @@ export default function MessageInput({ chatId, replyTo, onCancelReply, editMessa
     if (!text.trim() || !currentUser) return
 
     let finalContent = text.trim()
-
+    // цитирование
     if (!editMessage && replyTo) {
       const replyText = extractReplyText(replyTo.content)
       finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${replyText}\n\n${finalContent}`
     }
+    // редактирование
+    if (editMessage) {
+      let contentToSave = text.trim()
+      const replyMatch = editMessage.content.match(/^> \[reply:\d+:.+?\] .+?\n\n/)
+      if (replyMatch) {
+        contentToSave = replyMatch[0] + contentToSave
+      }
 
-if (editMessage) {
-  let contentToSave = text.trim()
-  const replyMatch = editMessage.content.match(/^> \[reply:\d+:.+?\] .+?\n\n/)
-  if (replyMatch) {
-    contentToSave = replyMatch[0] + contentToSave
-  }
 
-  // Шифруем новый текст так же, как при отправке
-  const myPublicKey = currentUser ? chatKeys[currentUser.id] : null
-  const otherKeys = Object.entries(chatKeys).filter(([uid]) => uid !== currentUser.id.toString())
-  let encryptedPayload = null
-  if (myPublicKey && otherKeys.length > 0) {
-    const recipientPublicKey = otherKeys[0][1]
-    try {
-      encryptedPayload = encryptForRecipientAndSelf(contentToSave, recipientPublicKey, myPublicKey)
-    } catch (err) {
-      console.error('Encryption failed', err)
+      const encryptedPayload = encryptMessage(contentToSave, chatType ?? 'private', chatKeys, currentUser.id, roomKey)
+
+
+      updateMutation.mutate(
+        {
+          messageId: editMessage.id,
+          content: contentToSave,   // будет использован для кэша, но на сервер не попадёт
+          encrypted: encryptedPayload,
+        },
+        { onSuccess: () => { setText(''); onCancelEdit?.() } }
+      )
       return
     }
-  }
 
-  updateMutation.mutate(
-    {
-      messageId: editMessage.id,
-      content: contentToSave,   // будет использован для кэша, но на сервер не попадёт
-      encrypted: encryptedPayload ? {
-        encrypted_content: encryptedPayload.encrypted_content,
-        encrypted_key_sender: encryptedPayload.encrypted_key_sender,
-        encrypted_key_recipient: encryptedPayload.encrypted_key_recipient,
-        iv: encryptedPayload.iv,
-        auth_tag: encryptedPayload.auth_tag,
-      } : undefined,
-    },
-    { onSuccess: () => { setText(''); onCancelEdit?.() } }
-  )
-  return
-}
-
-    // Шифруем для получателя и для себя
-    const myPublicKey = currentUser ? chatKeys[currentUser.id] : null
-    const otherKeys = Object.entries(chatKeys).filter(([uid]) => uid !== currentUser.id.toString())
-    let encryptedPayload = null
-    if (myPublicKey && otherKeys.length > 0) {
-      const recipientPublicKey = otherKeys[0][1]
-      try {
-        encryptedPayload = encryptForRecipientAndSelf(finalContent, recipientPublicKey, myPublicKey)
-      } catch (err) {
-        console.error('Encryption failed', err)
-        return
-      }
-    }
+    // Отправка нового сообщения
+    const encryptedPayload = encryptMessage(finalContent, chatType ?? 'private', chatKeys, currentUser.id, roomKey)
 
     // Добавляем сообщение в кэш мгновенно (без ожидания ответа сервера)
    const tempMessage: Message = {

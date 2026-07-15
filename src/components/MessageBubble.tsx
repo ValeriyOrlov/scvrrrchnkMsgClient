@@ -3,7 +3,7 @@ import { useDeleteMessage } from '../hooks/useDeleteMessage'
 import type { Message } from '../types'
 import { getMessageById } from '../lib/api'
 import ConfirmModal from './ConfirmModal'
-import { getPrivateKey, decryptMessage } from '../lib/crypto'
+import { getPrivateKey, decryptMessage, decryptMessageWithRoomKey } from '../lib/crypto'
 import useAuthStore from '../store/authStore'
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   onEdit?: (msg: Message) => void
   onScrollToReply?: (messageId: number) => void
   messagesMap?: Map<number, Message>
+  roomKey?: string | null
+  chatType?: 'private' | 'group'
 }
 
 function extractLastReply(content: string): string {
@@ -27,7 +29,7 @@ function extractLastReply(content: string): string {
   return content.trim()
 }
 
-export default function MessageBubble({ message, isOwn, chatId, onReply, onForward, onEdit, onScrollToReply, messagesMap }: Props) {
+export default function MessageBubble({ message, isOwn, chatId, onReply, onForward, onEdit, onScrollToReply, messagesMap, roomKey, chatType }: Props) {
   const [showActions, setShowActions] = useState(false)
   const [menuBelow, setMenuBelow] = useState(true)
   const deleteMutation = useDeleteMessage(chatId)
@@ -37,41 +39,71 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   const currentUser = useAuthStore(state => state.user)
   const privateKey = currentUser ? getPrivateKey(currentUser.id) : null
 
-  // 1. Расшифровываем (или берём открытый текст) базу сообщения
-const baseContent = useMemo(() => {
-  // Для своих сообщений всегда показываем content (открытый текст из кэша)
-  if (isOwn && message.content) {
-    return message.content
-  }
-  // Для чужих или если content пуст – расшифровываем
-  if (message.encrypted_content && message.iv && message.auth_tag && privateKey) {
+  // Расшифровка сообщения
+  const baseContent = useMemo(() => {
+    // Для своих сообщений всегда показываем content (открытый текст из кэша)
+    if (isOwn && message.content) {
+      return message.content
+    }
+
+    // Если нет зашифрованных данных – возвращаем content (или запасной текст)
+    if (!message.encrypted_content || !message.iv || !message.auth_tag) {
+      return message.content || 'Сообщение'
+    }
+
+    // Нет приватного ключа – не можем расшифровать
+    if (!privateKey) {
+      return 'Зашифрованное сообщение (нет ключа)'
+    }
+
+    // Групповой чат – используем Room Key
+    if (chatType === 'group' && roomKey) {
+      try {
+        return decryptMessageWithRoomKey(
+          message.encrypted_content,
+          message.iv,
+          message.auth_tag,
+          roomKey
+        )
+      } catch (e) {
+        return 'Ошибка расшифровки'
+      }
+    }
+
+    // Личный чат – существующая логика
     const encryptedKey = isOwn
       ? message.encrypted_key_sender
       : message.encrypted_key_recipient
     if (encryptedKey) {
-      const decrypted = decryptMessage(
-        message.encrypted_content,
-        encryptedKey,
-        message.iv,
-        message.auth_tag,
-        privateKey
-      )
-      return decrypted ?? 'Ошибка расшифровки'
+      try {
+        return decryptMessage(
+          message.encrypted_content,
+          encryptedKey,
+          message.iv,
+          message.auth_tag,
+          privateKey
+        )
+      } catch (e) {
+        return 'Ошибка расшифровки'
+      }
     }
-  }
-  return message.content || 'Сообщение'
-}, [message, isOwn, privateKey])
 
-  // 2. Парсим маркер цитаты и строим финальный отображаемый текст
+    return message.content || 'Сообщение'
+  }, [message, isOwn, privateKey, roomKey, chatType])
+
+  // Парсинг маркера цитаты
   let quoteAuthor = ''
   let quoteText = ''
   let replyTargetId: number | null = null
   let quotedMessage: Message | undefined
 
-  const replyMatch = baseContent.match(/^> \[reply:(\d+):(.+?)\] (.+?)\n\n/)
+  // Гарантируем, что baseContent всегда строка
+  const safeBaseContent = baseContent ?? '';
+
+  const replyMatch = safeBaseContent.match(/^> \[reply:(\d+):(.+?)\] (.+?)\n\n/)
   const displayContent = replyMatch
-    ? baseContent.slice(replyMatch[0].length)   // текст после цитаты
-    : baseContent
+    ? safeBaseContent.slice(replyMatch[0].length)
+    : safeBaseContent
 
   if (replyMatch) {
     replyTargetId = parseInt(replyMatch[1])

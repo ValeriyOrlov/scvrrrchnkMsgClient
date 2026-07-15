@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo } from 'react'
 import type { Message } from '../types'
 import MessageBubble from './MessageBubble'
 
@@ -10,20 +10,16 @@ interface Props {
   onForward?: (msg: Message) => void
   onEdit?: (msg: Message) => void
   onScrollToReply?: (messageId: number) => void
-  messageRefs?: React.RefObject<Record<number, HTMLDivElement | null>>
+  messageRefs?: React.MutableRefObject<Record<number, HTMLDivElement | null>>
+  roomKey?: string | null
+  chatType?: 'private' | 'group'
 }
 
-export default function MessageList({ messages, currentUserId, chatId, onReply, onForward, onEdit, onScrollToReply, messageRefs }: Props) {
+export default function MessageList({ messages, currentUserId, chatId, onReply, onForward, onEdit, onScrollToReply, messageRefs, roomKey, chatType }: Props) {
   const messagesMap = useMemo(() => {
     const map = new Map<number, Message>()
     messages.forEach(msg => map.set(msg.id, msg))
     return map
-  }, [messages])
-
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   return (
@@ -42,10 +38,11 @@ export default function MessageList({ messages, currentUserId, chatId, onReply, 
             onEdit={onEdit}
             onScrollToReply={onScrollToReply}
             messagesMap={messagesMap}
+            roomKey={roomKey}
+            chatType={chatType}
           />
         </div>
       ))}
-      <div ref={bottomRef} />
     </div>
   )
 }

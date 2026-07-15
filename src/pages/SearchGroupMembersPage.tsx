@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { searchUsers, createChat } from '../lib/api.ts'
+import { searchUsers, createChat, saveRoomKey, getUserPublicKey } from '../lib/api.ts'
+import { generateRoomKey, encryptRoomKey } from '../lib/crypto'
+import { useAuth } from '../hooks/useAuth.ts'
 import type { User } from '../types/index.ts'
 
 export default function SearchGroupMembersPage() {
@@ -10,6 +12,7 @@ export default function SearchGroupMembersPage() {
   const [groupName, setGroupName] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { user: currentUser } = useAuth()
 
   // Debounce-запрос при изменении query
   useEffect(() => {
@@ -54,6 +57,17 @@ export default function SearchGroupMembersPage() {
     const memberIds = selectedUsers.map(u => u.id)
     try {
       const chat = await createChat('group', groupName || '', memberIds)
+      // 1. Генерируем Room Key
+      const roomKey = generateRoomKey()
+      // Сохраняем Room Key для создателя и всех участников
+      const allUserIds = [currentUser!.id, ...memberIds]      
+      for (const userId of allUserIds) {
+        const publicKey = await getUserPublicKey(userId)
+        if (publicKey) {
+          const encrypted = encryptRoomKey(roomKey, publicKey)
+          await saveRoomKey(chat.id, encrypted)
+        }
+      }
       navigate(`/chats/${chat.id}`)
     } catch (err) {
       console.error('Create chat failed', err)

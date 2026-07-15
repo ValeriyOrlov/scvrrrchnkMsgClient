@@ -9,9 +9,10 @@ import MessageList from '../components/MessageList'
 import MessageInput from '../components/MessageInput'
 import bgPattern from '../assets/images/messages-box-background-blue.jpg'
 import { useTypingStore } from '../store/typingStore'
-import { markAsRead } from '../lib/api'
+import { markAsRead, getChatKeys, getRoomKey } from '../lib/api'
+import { decryptRoomKey } from '../lib/crypto'
+import { getPrivateKey } from '../lib/crypto'
 import type { Message } from '../types'
-import { getChatKeys } from '../lib/api'
 
 export default function ChatRoomPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,7 +32,6 @@ export default function ChatRoomPage() {
     }
   }, [location])
 
-  // Состояния для цитирования и редактирования
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [editMessage, setEditMessage] = useState<Message | null>(null)
 
@@ -44,7 +44,6 @@ export default function ChatRoomPage() {
 
   const reversedMessages = useMemo(() => messages ? [...messages].reverse() : [], [messages])
 
-  // Автоматически отмечаем чат как прочитанный при появлении сообщений
   useEffect(() => {
     if (!messages || messages.length === 0) return
     const maxId = Math.max(...messages.map(m => m.id))
@@ -81,18 +80,45 @@ export default function ChatRoomPage() {
     setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400'), 2000)
   }
 
+  // Публичные ключи участников (для личных чатов)
   const [chatKeys, setChatKeys] = useState<Record<number, string>>({})
+
+  // Room Key для группового чата (расшифрованный)
+  const [roomKey, setRoomKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!chatId) return
     getChatKeys(chatId)
       .then(keys => {
-        console.log('Chat keys loaded:', keys) // ← добавьте этот лог
+        console.log('Chat keys loaded:', keys)
         const map: Record<number, string> = {}
         keys.forEach(k => { map[k.user_id] = k.public_key })
         setChatKeys(map)
-    }).catch(err => console.error('Failed to load chat keys', err))
+      })
+      .catch(err => console.error('Failed to load chat keys', err))
   }, [chatId])
+
+  // Загрузка Room Key для группового чата
+  useEffect(() => {
+    if (!chat || chat.type !== 'group') {
+      setRoomKey(null)
+      return
+    }
+    const privKey = user ? getPrivateKey(user.id) : null
+    if (!privKey) {
+      setRoomKey(null)
+      return
+    }
+    getRoomKey(chatId)
+      .then(data => {
+        const decrypted = decryptRoomKey(data.encrypted_key, privKey)
+        setRoomKey(decrypted)
+      })
+      .catch(err => {
+        console.error('Failed to load room key', err)
+        setRoomKey(null)
+      })
+  }, [chat, chatId, user])
 
   const handleStartEdit = (msg: Message) => {
     setReplyTo(null)
@@ -154,6 +180,8 @@ export default function ChatRoomPage() {
             onForward={handleForward}
             onScrollToReply={scrollToMessage}
             messageRefs={messageRefs}
+            roomKey={roomKey}
+            chatType={chat?.type}
           />
         }
       </div>
@@ -166,6 +194,8 @@ export default function ChatRoomPage() {
           onCancelEdit={handleCancelEdit}
           onSaveEdit={handleSaveEdit}
           chatKeys={chatKeys}
+          roomKey={roomKey}
+          chatType={chat?.type ?? 'private'}
         />
       </div>
     </div>

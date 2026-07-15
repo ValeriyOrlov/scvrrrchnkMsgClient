@@ -78,17 +78,27 @@ export const sendEncryptedMessage = (
     auth_tag: authTag,
   }).then(res => res.data)
 
-  export const updateEncryptedMessage = (
-    chatId: number,
-    messageId: number,
-    content: string,
-    encrypted: { encrypted_content: string; encrypted_key_sender: string; encrypted_key_recipient: string; iv: string; auth_tag: string }
-  ) =>
-    messengerApi.patch(`/chats/${chatId}/messages/${messageId}`, {
-      content,
-      encrypted_content: encrypted.encrypted_content,
-      encrypted_key_sender: encrypted.encrypted_key_sender,
-      encrypted_key_recipient: encrypted.encrypted_key_recipient,
-      iv: encrypted.iv,
-      auth_tag: encrypted.auth_tag,
-    }).then(res => res.data)
+export const updateEncryptedMessage = (
+  chatId: number,
+  messageId: number,
+  content: string,
+  encrypted: { encrypted_content: string; encrypted_key_sender: string; encrypted_key_recipient: string; iv: string; auth_tag: string }
+) =>
+  messengerApi.patch(`/chats/${chatId}/messages/${messageId}`, {
+    content,
+    encrypted_content: encrypted.encrypted_content,
+    encrypted_key_sender: encrypted.encrypted_key_sender,
+    encrypted_key_recipient: encrypted.encrypted_key_recipient,
+    iv: encrypted.iv,
+    auth_tag: encrypted.auth_tag,
+}).then(res => res.data)
+
+export const saveRoomKey = (chatId: number, encryptedKey: string) =>
+  messengerApi.post(`/chats/${chatId}/room-key`, { encrypted_key: encryptedKey })
+
+export const getRoomKey = (chatId: number) =>
+  messengerApi.get<{ encrypted_key: string }>(`/chats/${chatId}/room-key`).then(res => res.data)
+
+// Получение публичного ключа пользователя (нужно для создания группы)
+export const getUserPublicKey = (userId: number) =>
+  messengerApi.get<{ public_key: string }>(`/users/${userId}/key`).then(res => res.data.public_key)

@@ -6,13 +6,13 @@ export function useSendMessage(chatId: number) {
 
   return useMutation({
     mutationFn: (data: { content: string; encrypted?: any }) => {
-      if (data.encrypted) {
+      if (data.encrypted && data.encrypted.encrypted_content) {
         return sendEncryptedMessage(
           chatId,
           '', // сервер не должен знать открытый текст
           data.encrypted.encrypted_content,
-          data.encrypted.encrypted_key_sender,
-          data.encrypted.encrypted_key_recipient,
+          data.encrypted.encrypted_key_sender || '',
+          data.encrypted.encrypted_key_recipient || '',
           data.encrypted.iv,
           data.encrypted.auth_tag
         )
