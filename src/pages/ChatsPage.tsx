@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useChats } from '../hooks/useChats'
@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getOnlineUsers } from '../lib/api'
 
 export default function ChatsPage() {
-  const { user: currentUser, logout } = useAuth()
+  const { user: currentUser, logout, backupCreated } = useAuth()
   const navigate = useNavigate()
   const { data: chats, isLoading, isError, refetch } = useChats()
   const { data: onlineUsers = [] } = useQuery({
@@ -18,6 +18,8 @@ export default function ChatsPage() {
     queryFn: getOnlineUsers,
     staleTime: Infinity,
   })
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // При монтировании компонента принудительно обновляем список чатов
   useEffect(() => {
@@ -34,6 +36,18 @@ export default function ChatsPage() {
   if (!currentUser) {
     return null
   }
+
+  // Закрытие меню при клике вне
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [menuOpen])
 
   const handleChatClick = (chatId: number) => {
     navigate(`/chats/${chatId}`)
@@ -63,8 +77,38 @@ export default function ChatsPage() {
   return (
     <div className="relative flex flex-col h-full">
       <header className="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">{currentUser.username}</h2>
-        <button onClick={logout} className="text-sm text-red-500">Выйти</button>
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex items-center gap-1 text-sm text-gray-700 hover:bg-gray-100 px-2 py-1 rounded-lg transition-colors"
+          >
+            <h2 className="text-lg font-semibold">{currentUser?.username}</h2>
+            {!backupCreated && (
+              <span className="inline-flex items-center justify-center w-4 h-4 bg-yellow-400 text-white text-xs rounded-full" title="Создайте резервную копию ключа">
+                !
+              </span>
+            )}
+            <svg className={`w-4 h-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div className="absolute left-0 mt-2 w-48 bg-white shadow-lg rounded-xl py-2 z-20">
+              <button
+                onClick={() => { navigate('/backup'); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                🔐 Резервное копирование
+              </button>
+              <button
+                onClick={() => { logout(); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
+              >
+                🚪 Выйти
+              </button>
+            </div>
+          )}
+        </div>
       </header>
       <ul className="flex-1 overflow-y-auto">
         {sortedChats.map(chat => (

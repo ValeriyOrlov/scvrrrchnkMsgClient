@@ -53,24 +53,46 @@ export default function SearchGroupMembersPage() {
   }
 
   const handleCreateGroup = async () => {
-    if (selectedUsers.length === 0) return
+    if (selectedUsers.length === 0 || !currentUser) return
+    console.log('selectedUsers:', selectedUsers.map(u => ({ id: u.id, username: u.username })));
     const memberIds = selectedUsers.map(u => u.id)
     try {
       const chat = await createChat('group', groupName || '', memberIds)
-      // 1. Генерируем Room Key
       const roomKey = generateRoomKey()
-      // Сохраняем Room Key для создателя и всех участников
-      const allUserIds = [currentUser!.id, ...memberIds]      
-      for (const userId of allUserIds) {
-        const publicKey = await getUserPublicKey(userId)
+
+      // Сохраняем Room Key для создателя
+      const creatorPublicKey = await getUserPublicKey(currentUser.id)
+      if (!creatorPublicKey) {
+        alert('У вас нет публичного ключа. Перезайдите в аккаунт.')
+        return
+      }
+      const encryptedCreator = encryptRoomKey(roomKey, creatorPublicKey)
+      await saveRoomKey(chat.id, currentUser.id, encryptedCreator)
+      console.log(`Room key saved for creator (user ${currentUser.id})`)
+
+      // Сохраняем Room Key для каждого выбранного участника
+      for (const user of selectedUsers) {
+        console.log(`Loop iteration: user.id=${user.id}, currentUser.id=${currentUser.id}`);
+        if (user.id === currentUser.id) {
+          console.log(`Skipping creator (user ${user.id})`);
+          continue;
+        }
+        console.log(`Processing user ${user.id} (${user.username})`);
+        const publicKey = await getUserPublicKey(user.id);
+        console.log(`Public key for user ${user.id}: ${!!publicKey}`);
         if (publicKey) {
-          const encrypted = encryptRoomKey(roomKey, publicKey)
-          await saveRoomKey(chat.id, encrypted)
+          const encrypted = encryptRoomKey(roomKey, publicKey);
+          await saveRoomKey(chat.id, user.id, encrypted);
+          console.log(`Room key saved for user ${user.id}`);
+        } else {
+          console.error(`No public key for user ${user.id}`);
+          alert(`Пользователь ${user.username} ещё не настроил шифрование.`);
+          return;
         }
       }
       navigate(`/chats/${chat.id}`)
     } catch (err) {
-      console.error('Create chat failed', err)
+      console.error('Create group failed', err)
     }
   }
 

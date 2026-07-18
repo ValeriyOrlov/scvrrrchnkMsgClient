@@ -93,12 +93,19 @@ export const updateEncryptedMessage = (
     auth_tag: encrypted.auth_tag,
 }).then(res => res.data)
 
-export const saveRoomKey = (chatId: number, encryptedKey: string) =>
-  messengerApi.post(`/chats/${chatId}/room-key`, { encrypted_key: encryptedKey })
+export const saveRoomKey = (chatId: number, userId: number, encryptedKey: string) =>
+  messengerApi.post(`/chats/${chatId}/room-key`, { user_id: userId, encrypted_key: encryptedKey })
 
 export const getRoomKey = (chatId: number) =>
   messengerApi.get<{ encrypted_key: string }>(`/chats/${chatId}/room-key`).then(res => res.data)
 
 // Получение публичного ключа пользователя (нужно для создания группы)
-export const getUserPublicKey = (userId: number) =>
-  messengerApi.get<{ public_key: string }>(`/users/${userId}/key`).then(res => res.data.public_key)
+export const getUserPublicKey = (userId: number): Promise<string> =>
+  messengerApi.get<{ public_key: string }>(`/users/${userId}/key`)
+    .then(res => res.data.public_key.trim()) // на всякий случай обрезаем
+
+export const saveBackup = (encryptedBackup: string) =>
+  messengerApi.put('/users/me/backup', { encrypted_backup: encryptedBackup })
+
+export const getBackup = () =>
+  messengerApi.get<{ encrypted_backup: string }>('/users/me/backup').then(res => res.data.encrypted_backup)

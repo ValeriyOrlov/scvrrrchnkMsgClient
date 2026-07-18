@@ -104,14 +104,24 @@ export function generateRoomKey(): string {
 
 // Шифрование Room Key для участника
 export function encryptRoomKey(roomKey: string, publicKeyPem: string): string {
-  const publicKey = forge.pki.publicKeyFromPem(publicKeyPem)
-  return forge.util.bytesToHex(publicKey.encrypt(forge.util.hexToBytes(roomKey), 'RSA-OAEP'))
+  try {
+    const publicKey = forge.pki.publicKeyFromPem(publicKeyPem.trim()) // убираем лишние пробелы
+    return forge.util.bytesToHex(publicKey.encrypt(forge.util.hexToBytes(roomKey), 'RSA-OAEP'))
+  } catch (e) {
+    console.error('encryptRoomKey failed:', e)
+    throw new Error('Invalid public key format')
+  }
 }
 
 // Расшифровка Room Key приватным ключом
 export function decryptRoomKey(encryptedKey: string, privateKeyPem: string): string {
-  const privateKey = forge.pki.privateKeyFromPem(privateKeyPem)
-  return forge.util.bytesToHex(privateKey.decrypt(forge.util.hexToBytes(encryptedKey), 'RSA-OAEP'))
+  try {
+    const privateKey = forge.pki.privateKeyFromPem(privateKeyPem.trim())
+    return forge.util.bytesToHex(privateKey.decrypt(forge.util.hexToBytes(encryptedKey), 'RSA-OAEP'))
+  } catch (e) {
+    console.error('decryptRoomKey failed:', e)
+    throw e
+  }
 }
 
 /**
@@ -219,4 +229,39 @@ export function decryptMessageWithRoomKey(encryptedContent: string, ivHex: strin
   decipher.update(forge.util.createBuffer(forge.util.hexToBytes(encryptedContent)))
   decipher.finish()
   return decipher.output.toString()
+}
+
+// Шифрование строки паролем (AES-GCM, ключ из пароля через SHA-256)
+export function encryptWithPassword(plaintext: string, password: string): string {
+  const passwordKey = forge.md.sha256.create().update(password).digest().getBytes()
+  const iv = forge.random.getBytesSync(16)
+  const cipher = forge.cipher.createCipher('AES-GCM', passwordKey)
+  cipher.start({ iv: forge.util.createBuffer(iv) })
+  cipher.update(forge.util.createBuffer(plaintext, 'utf8'))
+  cipher.finish()
+  const encrypted = cipher.output.getBytes()
+  const tag = cipher.mode.tag.getBytes()
+  return JSON.stringify({
+    iv: forge.util.bytesToHex(iv),
+    content: forge.util.bytesToHex(encrypted),
+    tag: forge.util.bytesToHex(tag),
+  })
+}
+
+// Расшифровка строки паролем
+export function decryptWithPassword(encryptedBackup: string, password: string): string | null {
+  try {
+    const { iv, content, tag } = JSON.parse(encryptedBackup)
+    const passwordKey = forge.md.sha256.create().update(password).digest().getBytes()
+    const decipher = forge.cipher.createDecipher('AES-GCM', passwordKey)
+    decipher.start({
+      iv: forge.util.createBuffer(forge.util.hexToBytes(iv)),
+      tag: forge.util.createBuffer(forge.util.hexToBytes(tag)),
+    })
+    decipher.update(forge.util.createBuffer(forge.util.hexToBytes(content)))
+    decipher.finish()
+    return decipher.output.toString()
+  } catch (e) {
+    return null
+  }
 }

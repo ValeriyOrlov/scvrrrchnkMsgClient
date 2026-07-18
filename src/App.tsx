@@ -9,6 +9,7 @@ import SearchGroupMembersPage from "./pages/SearchGroupMembersPage.tsx";
 import ChatInfoPage from "./pages/ChatInfoPage.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import ForwardPage from "./pages/ForwardPage.tsx";
+import BackupPage from "./pages/BackupPage.tsx";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/chats/:id/info" element={<ProtectedRoute><ChatInfoPage /></ProtectedRoute>} />
         <Route path="/forward" element={<ProtectedRoute><ForwardPage /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/chats" replace />} />
+        <Route path="/backup" element={<ProtectedRoute><BackupPage /></ProtectedRoute>} />
       </Route>
     </Routes>
   )

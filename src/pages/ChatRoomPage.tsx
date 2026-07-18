@@ -109,8 +109,10 @@ export default function ChatRoomPage() {
       setRoomKey(null)
       return
     }
+    console.log('Loading room key for chat', chatId)
     getRoomKey(chatId)
       .then(data => {
+        console.log('Room key loaded:', data.encrypted_key)
         const decrypted = decryptRoomKey(data.encrypted_key, privKey)
         setRoomKey(decrypted)
       })

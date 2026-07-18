@@ -10,8 +10,10 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   user: User | null
+  backupCreated: boolean
   setAuth: (accessToken: string, refreshToken: string, user: User) => void
   clearAuth: () => void
+  setBackupCreated: (value: boolean) => void
 }
 
 export const isTokenExpired = (token: string | null): boolean => {
@@ -37,6 +39,7 @@ const useAuthStore = create<AuthState>((set) => ({
   accessToken: validAccess,
   refreshToken: validRefresh,
   user: savedUser ? (JSON.parse(savedUser) as User) : null,
+  backupCreated: localStorage.getItem('backup_created') === 'true',
   setAuth: (accessToken, refreshToken, user) => {
     localStorage.setItem('accessToken', accessToken)
     localStorage.setItem('refreshToken', refreshToken)
@@ -48,6 +51,10 @@ const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     set({ accessToken: null, refreshToken: null, user: null})
+  },
+  setBackupCreated: (value) => {
+    localStorage.setItem('backup_created', value ? 'true' : 'false')
+    set({ backupCreated: value })
   },
 }))
 
