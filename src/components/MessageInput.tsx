@@ -30,7 +30,6 @@ export default function MessageInput({
   onCancelReply,
   editMessage,
   onCancelEdit,
-  onSaveEdit,
   chatKeys,
   roomKey,
   chatType,
