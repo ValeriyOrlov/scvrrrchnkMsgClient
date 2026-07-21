@@ -13,6 +13,8 @@ import { markAsRead, getChatKeys, getRoomKey } from '../lib/api'
 import { decryptRoomKey } from '../lib/crypto'
 import { getPrivateKey } from '../lib/crypto'
 import type { Message } from '../types'
+import { useQuery } from '@tanstack/react-query'
+import { getOnlineUsers } from '../lib/api'
 
 export default function ChatRoomPage() {
   const { id } = useParams<{ id: string }>()
@@ -23,6 +25,18 @@ export default function ChatRoomPage() {
   const { data: chat, isPending: isChatLoading } = useChat(chatId)
 
   const location = useLocation()
+
+  const { data: onlineUsers = [] } = useQuery({
+    queryKey: ['onlineUsers'],
+    queryFn: getOnlineUsers,
+    staleTime: Infinity,
+  })
+
+  const isOnline = useMemo(() => {
+    if (!chat || chat.type !== 'private') return false
+    const otherMember = chat.members?.find(m => m.user?.id !== user?.id)
+    return otherMember ? onlineUsers.includes(otherMember.user.id) : false
+  }, [chat, onlineUsers, user?.id])
 
   useEffect(() => {
     const state = location.state as { forwardMessage?: Message } | null
@@ -145,7 +159,12 @@ export default function ChatRoomPage() {
           ← Назад
         </button>
         <div>
-          <h2 className="text-lg font-semibold truncate">{displayName}</h2>
+            <h2 className="text-lg font-semibold truncate flex items-center gap-1">
+              {displayName}
+              {isOnline && (
+                <span className="w-2 h-2 bg-green-500 rounded-full inline-block" title="В сети" />
+              )}
+            </h2>
           {typingText ? (
             <p className="text-sm text-gray-500 italic">{typingText}</p>
           ) : (

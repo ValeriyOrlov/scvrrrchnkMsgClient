@@ -4,6 +4,8 @@ import { searchUsers, createChat, saveRoomKey, getUserPublicKey } from '../lib/a
 import { generateRoomKey, encryptRoomKey } from '../lib/crypto'
 import { useAuth } from '../hooks/useAuth.ts'
 import type { User } from '../types/index.ts'
+import { useQuery } from '@tanstack/react-query'
+import { getOnlineUsers } from '../lib/api'
 
 export default function SearchGroupMembersPage() {
   const [query, setQuery] = useState('')
@@ -13,6 +15,11 @@ export default function SearchGroupMembersPage() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
+  const { data: onlineUsers = [] } = useQuery({
+  queryKey: ['onlineUsers'],
+  queryFn: getOnlineUsers,
+  staleTime: Infinity,
+})
 
   // Debounce-запрос при изменении query
   useEffect(() => {
@@ -165,6 +172,9 @@ export default function SearchGroupMembersPage() {
             </div>
             <span className="font-medium">{user.username}</span>
               {isSelected && <span className="ml-auto text-blue-500">✓</span>}
+              {onlineUsers.includes(user.id) && (
+                <span className="w-2 h-2 bg-green-500 rounded-full" title="В сети" />
+              )}
             </div>
           )
         })}

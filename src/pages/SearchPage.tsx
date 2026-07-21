@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchUsers, createChat } from '../lib/api.ts'
 import type { User } from '../types/index.ts'
+import { useQuery } from '@tanstack/react-query'
+import { getOnlineUsers } from '../lib/api'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { data: onlineUsers = [] } = useQuery({
+  queryKey: ['onlineUsers'],
+  queryFn: getOnlineUsers,
+  staleTime: Infinity,
+})
 
   // Debounce-запрос при изменении query
   useEffect(() => {
@@ -72,17 +79,22 @@ export default function SearchPage() {
           <p className="p-4 text-gray-500">Никого не найдено</p>
         )}
         {results.map((user) => (
-          <div
-            key={user.id}
-            onClick={() => handleStartChat(user.id)}
-            className="flex items-center gap-3 p-4 border-b border-gray-100 active:bg-gray-50 cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center text-white font-bold">
-              {user.username.charAt(0).toUpperCase()}
-            </div>
-            <span className="font-medium">{user.username}</span>
+        <div
+          key={user.id}
+          onClick={() => handleStartChat(user.id)}
+          className="flex items-center gap-3 p-4 border-b border-gray-100 active:bg-gray-50 cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center text-white font-bold">
+            {user.username.charAt(0).toUpperCase()}
           </div>
-        ))}
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{user.username}</span>
+            {onlineUsers.includes(user.id) && (
+              <span className="w-2 h-2 bg-green-500 rounded-full" title="В сети" />
+            )}
+          </div>
+        </div>
+      ))}
       </div>
     </div>
   )

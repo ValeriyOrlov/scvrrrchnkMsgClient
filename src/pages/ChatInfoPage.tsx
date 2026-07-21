@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useChat } from '../hooks/useChat.ts'
 import {
@@ -14,6 +14,7 @@ import {
 import { getPrivateKey, decryptRoomKey, encryptRoomKey } from '../lib/crypto'
 import type { User } from '../types/index.ts'
 import ConfirmModal from '../components/ConfirmModal.tsx'
+import { getOnlineUsers } from '../lib/api'
 
 export default function ChatInfoPage() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +29,11 @@ export default function ChatInfoPage() {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [decryptedRoomKey, setDecryptedRoomKey] = useState<string | null>(null)
+  const { data: onlineUsers = [] } = useQuery({
+  queryKey: ['onlineUsers'],
+  queryFn: getOnlineUsers,
+  staleTime: Infinity,
+})
 
   // Загружаем и расшифровываем Room Key, если чат групповой
   useEffect(() => {
@@ -128,7 +134,12 @@ export default function ChatInfoPage() {
             <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-white font-bold">
               {member.user?.username?.charAt(0).toUpperCase() || '?'}
             </div>
-            <span>{member.user?.username || 'Неизвестный'}</span>
+            <div className="flex items-center gap-2">
+              <span>{member.user?.username || 'Неизвестный'}</span>
+              {onlineUsers.includes(member.user_id) && (
+                <span className="w-2 h-2 bg-green-500 rounded-full" title="В сети" />
+              )}
+            </div>
             {member.role === 'admin' && <span className="text-xs text-gray-500">(админ)</span>}
           </div>
         ))}
