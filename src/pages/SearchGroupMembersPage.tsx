@@ -99,7 +99,16 @@ export default function SearchGroupMembersPage() {
   return (
         <div className="flex flex-col h-full p-4 gap-2">
       {/* Хедер с полем поиска */}
-      <header className="pb-2">
+      <header className="p-4 border-b border-gray-200 flex items-center gap-3">
+        <button
+          onClick={() => navigate('/chats')}
+          className="text-blue-500"
+        >
+          ← Назад
+        </button>
+        <h2>Новая группа</h2>
+      </header>
+      <div className="border-b border-gray-200">
         <input
           type="text"
           placeholder="Поиск пользователей..."
@@ -108,7 +117,7 @@ export default function SearchGroupMembersPage() {
           className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           autoFocus
         />
-      </header>
+      </div>
       {selectedUsers.length > 0 && (
         <div className="flex flex-wrap gap-2 p-2 border-b border-gray-200">
           {selectedUsers.map(user => (
@@ -141,7 +150,7 @@ export default function SearchGroupMembersPage() {
       <button
         onClick={handleCreateGroup}
         disabled={selectedUsers.length === 0}
-        className="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+        className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
           + Создать группу ({selectedUsers.length})
       </button>
       {/* Результаты поиска */}
