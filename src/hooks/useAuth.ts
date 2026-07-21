@@ -19,30 +19,17 @@ export function useAuth() {
     localStorage.removeItem('backup_warning_last_shown')
   }, [])
 
-  // Модальное окно показывается, если:
-  // 1. Бэкап ещё не создан (backup_created === false)
-  // 2. Ещё не показывалось сегодня (или показывалось > 24 часов назад)
-  const shouldShowWarning = !backupCreated && (
-    !localStorage.getItem('backup_warning_last_shown') ||
-    (Date.now() - parseInt(localStorage.getItem('backup_warning_last_shown') || '0') > 24 * 60 * 60 * 1000)
-  )
-
   // Функция, которая вызывается при закрытии окна (кнопка «Позже»)
   const dismissBackupWarning = useCallback(() => {
     localStorage.setItem('backup_warning_last_shown', Date.now().toString())
     setShowBackupWarning(false)
   }, [])
 
-  // При первом рендере или изменении флага бэкапа
   useEffect(() => {
-    if (shouldShowWarning) {
+    if (user && !backupCreated && !localStorage.getItem('backup_warning_shown')) {
       setShowBackupWarning(true)
-      // Если ещё не показывали ни разу, тоже запоминаем время, чтобы окно не висело вечно
-      if (!localStorage.getItem('backup_warning_last_shown')) {
-        localStorage.setItem('backup_warning_last_shown', Date.now().toString())
-      }
     }
-  }, [shouldShowWarning])
+  }, [user, backupCreated])
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await loginApi(email, password)
@@ -50,34 +37,32 @@ export function useAuth() {
     const user = { id: payload.user_id, username: payload.username }
     setAuth(data.access_token, data.refresh_token, user)
 
-    // Проверяем, есть ли уже приватный ключ
     const existingPrivateKey = getPrivateKey(user.id)
     if (!existingPrivateKey) {
       try {
         const keypair = await generateRSAKeyPair()
         savePrivateKey(user.id, keypair.privateKey)
         await updatePublicKey(keypair.publicKey)
-        if (!backupCreated && !localStorage.getItem('backup_warning_shown')) {
-          setShowBackupWarning(true)
-        }
         console.log('RSA keys generated and public key sent to server')
-        // Проверяем флаг первого входа
-        if (!localStorage.getItem('backup_warning_shown')) {
-          setShowBackupWarning(true)
-        }
+        
+        // Сбрасываем флаг бэкапа, потому что ключи новые
+        setBackupCreated(false)
+        localStorage.removeItem('backup_created')
       } catch (err) {
         console.error('Failed to generate keys', err)
       }
     }
-  }, [setAuth])
+  }, [setAuth, setBackupCreated])
 
   const register = useCallback(async (email: string, username: string, password: string) => {
     await registerApi(email, username, password)
     await login(email, password)
   }, [login])
 
+  // В logout сбрасываем флаг показа, чтобы при следующем входе окно появилось снова
   const logout = useCallback(() => {
     clearAuth()
+    localStorage.removeItem('backup_warning_shown') // чтобы при следующем логине окно опять показалось
   }, [clearAuth])
 
   // Keep-alive: каждые 10 минут молча обновляем токен, если до истечения меньше 5 минут
