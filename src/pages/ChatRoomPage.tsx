@@ -90,7 +90,6 @@ export default function ChatRoomPage() {
     if (!chatId) return
     getChatKeys(chatId)
       .then(keys => {
-        console.log('Chat keys loaded:', keys)
         const map: Record<number, string> = {}
         keys.forEach(k => { map[k.user_id] = k.public_key })
         setChatKeys(map)
@@ -109,10 +108,8 @@ export default function ChatRoomPage() {
       setRoomKey(null)
       return
     }
-    console.log('Loading room key for chat', chatId)
     getRoomKey(chatId)
       .then(data => {
-        console.log('Room key loaded:', data.encrypted_key)
         const decrypted = decryptRoomKey(data.encrypted_key, privKey)
         setRoomKey(decrypted)
       })
@@ -158,10 +155,11 @@ export default function ChatRoomPage() {
           )}
         </div>
         <span
-          className='cursor-pointer'
+          className="cursor-pointer w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 text-xs font-bold hover:bg-gray-300 transition-colors"
           onClick={() => navigate(`/chats/${chatId}/info`)}
+          title="Информация о чате"
         >
-          chat info
+          i
         </span>
       </header>
       <div 
