@@ -41,21 +41,30 @@ export default function SearchPage() {
   return (
         <div className="flex flex-col h-full p-4 gap-2">
       {/* Хедер с полем поиска */}
-      <header className="border-b border-gray-200">
+      <header className="p-4 border-b border-gray-200 flex items-center gap-3">
+        <button
+          onClick={() => navigate('/chats')}
+          className="text-blue-500"
+        >
+          ← Назад
+        </button>
+        <h2>Новое сообщение</h2>
+      </header>
+      <div className="border-b border-gray-200">
         <input
           type="text"
           placeholder="Поиск пользователей..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-2 my-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           autoFocus
         />
-      </header>
-      <button
+        <button
           onClick={() => navigate('/searchGroupMembers')}
-          className="bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg">
+          className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
           + Новая группа
-      </button>
+        </button>
+      </div>
       {/* Результаты поиска */}
       <div className="flex-1 overflow-y-auto">
         {loading && <p className="p-4 text-gray-500">Загрузка...</p>}
