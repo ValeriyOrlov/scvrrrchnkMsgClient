@@ -265,3 +265,36 @@ export function decryptWithPassword(encryptedBackup: string, password: string): 
     return null
   }
 }
+
+export async function encryptWithRoomKeyWebCrypto(plaintext: string, roomKeyHex: string): Promise<{ encrypted_content: string; iv: string; auth_tag: string }> {
+  const keyBytes = new Uint8Array(roomKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))).buffer
+  const iv = crypto.getRandomValues(new Uint8Array(16))
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  )
+
+  const encodedText = new TextEncoder().encode(plaintext)
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    cryptoKey,
+    encodedText
+  )
+
+  const encryptedArray = new Uint8Array(encrypted)
+  const tagOffset = encryptedArray.length - 16
+  const content = encryptedArray.slice(0, tagOffset)
+  const tag = encryptedArray.slice(tagOffset)
+
+  const buf2hex = (buf: Uint8Array) => Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('')
+
+  return {
+    encrypted_content: buf2hex(content),
+    iv: buf2hex(iv),
+    auth_tag: buf2hex(tag),
+  }
+}

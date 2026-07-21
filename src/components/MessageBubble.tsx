@@ -169,7 +169,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
               className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
         ↩️ Ответить
       </button>
-      <button onClick={(e) => { e.stopPropagation(); onForward?.(message); setShowActions(false); }}
+      <button onClick={(e) => { e.stopPropagation(); onForward?.({  ...message, content: baseContent || ''  }); setShowActions(false); }}
               className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
         ↪️ Переслать
       </button>
