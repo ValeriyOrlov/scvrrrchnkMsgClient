@@ -12,7 +12,6 @@ export function useWebSocket() {
 
   const sendMessage = useCallback((data: any) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      //console.log(`Sending on WS #${(socketRef.current as any).__id}:`, data)
       socketRef.current.send(JSON.stringify(data))
     } else {
       console.warn('WebSocket not open, readyState:', socketRef.current?.readyState)
@@ -25,23 +24,17 @@ export function useWebSocket() {
 
     // Закрываем предыдущее соединение, если оно ещё живо
     if (socketRef.current) {
-      console.log('Closing previous WS')
       socketRef.current.close()
       socketRef.current = null
     }
 
 const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
 (ws as any).__id = ++socketCounter;
-console.log(`WS created #${(ws as any).__id}`);
     socketRef.current = ws
 
-console.log(`WS #${(ws as any).__id} connected`);
     ws.onmessage = (event) => {
-        console.log('RAW WS data:', event.data)
-
       try {
         const data = JSON.parse(event.data)
-            console.log('Parsed WS data:', data)
 
         if (data.type === 'chat_message') {
           const chatId = data.message?.chat_id
@@ -56,17 +49,15 @@ console.log(`WS #${(ws as any).__id} connected`);
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'user_status') {
-          //console.log(data.online)
           queryClient.setQueryData(['onlineUsers'], (old: number[] = []) => {
-            console.log('queryClient setQueryData - online users')
             if (data.online) {
               return [...new Set([...old, data.user_id])]
             } else {
               return old.filter(id => id !== data.user_id)
             }
           })
+          queryClient.invalidateQueries({ queryKey: ['onlineUsers'] })
         } else if (data.type === 'typing') {
-          //console.log('Received typing:', data)
           const { chat_id, user_id } = data
           useTypingStore.getState().setTyping(chat_id, user_id, true)
           setTimeout(() => {
@@ -81,7 +72,6 @@ console.log(`WS #${(ws as any).__id} connected`);
       }
     }
     ws.onclose = () => {
-      console.log(`WS #${(ws as any).__id} disconnected`)
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000)
     }
     ws.onerror = (error) => {
