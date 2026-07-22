@@ -50,6 +50,7 @@ export default function ChatRoomPage() {
   const [editMessage, setEditMessage] = useState<Message | null>(null)
 
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const updateMutation = useUpdateMessage(chatId)
 
   const typingUsers = useTypingStore(
@@ -63,6 +64,13 @@ export default function ChatRoomPage() {
     const maxId = Math.max(...messages.map(m => m.id))
     markAsRead(chatId, maxId).catch(console.error)
   }, [messages, chatId])
+
+  // Автопрокрутка вниз при изменении сообщений
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [reversedMessages])
 
   const otherTypingUsers = useMemo(
     () => typingUsers.filter((id: number) => id !== user?.id),
@@ -203,6 +211,7 @@ export default function ChatRoomPage() {
             chatType={chat?.type}
           />
         }
+        <div ref={messagesEndRef} />
       </div>
       <div className="flex-shrink-0">
         <MessageInput
