@@ -100,8 +100,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   // Гарантируем, что baseContent всегда строка
   const safeBaseContent = baseContent ?? '';
 
-  const replyMatch = safeBaseContent.match(/^> \[reply:(\d+):(.+?)\]\s*(.*)/);  
-  const displayContent = replyMatch
+  const replyMatch = safeBaseContent.match(/^> \[reply:(\d+):(.+?)\]\s*(.+?)(?:\n|$)/);  const displayContent = replyMatch
     ? safeBaseContent.slice(replyMatch[0].length)
     : safeBaseContent
 
@@ -200,7 +199,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
         <div
           onClick={toggleMenu}
           className={`px-4 py-2 rounded-2xl cursor-pointer ${
-            isOwn ? 'bg-blue-500 text-white rounded-br-md' : 'bg-gray-200 text-gray-900 rounded-bl-md'
+            isOwn ? 'bg-blue-500 text-white rounded-br-md' : 'bg-white text-gray-900 rounded-bl-md'
           } ${showActions ? 'ring-2 ring-blue-300' : ''}`}
         >
           {replyTargetId && (
