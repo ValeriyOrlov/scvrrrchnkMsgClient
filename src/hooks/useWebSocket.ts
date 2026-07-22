@@ -28,11 +28,12 @@ export function useWebSocket() {
       socketRef.current = null
     }
 
-const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
-(ws as any).__id = ++socketCounter;
-    socketRef.current = ws
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8081/ws'
+    const socket = new WebSocket(`${wsUrl}?token=${token}`)
+    ;(socket as any).__id = ++socketCounter
+    socketRef.current = socket
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
 
@@ -64,18 +65,17 @@ const ws = new WebSocket(`ws://localhost:8081/ws?token=${token}`);
             useTypingStore.getState().setTyping(chat_id, user_id, false)
           }, 3000)
         } else if (data.type === 'messages_read') {
-          // Инвалидируем кэш чатов, чтобы перезапросить список и обновить last_read_message_id
           queryClient.invalidateQueries({ queryKey: ['chats'] })
         }
       } catch (err) {
         console.error('Invalid WS message', err)
       }
     }
-    ws.onclose = () => {
+    socket.onclose = () => {
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000)
     }
-    ws.onerror = (error) => {
-      console.error(`WS #${(ws as any).__id} error`, error)
+    socket.onerror = (error) => {
+      console.error('WebSocket error', error)
     }
   }, [queryClient])
 
