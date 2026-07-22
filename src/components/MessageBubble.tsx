@@ -100,7 +100,7 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   // Гарантируем, что baseContent всегда строка
   const safeBaseContent = baseContent ?? '';
 
-  const replyMatch = safeBaseContent.match(/^> \[reply:(\d+):(.+?)\] (.+?)\n\n/)
+  const replyMatch = safeBaseContent.match(/^> \[reply:(\d+):(.+?)\]\s*(.*)/);  
   const displayContent = replyMatch
     ? safeBaseContent.slice(replyMatch[0].length)
     : safeBaseContent

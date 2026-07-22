@@ -10,7 +10,7 @@ interface ChatListItemProps {
 }
 
 function cleanReplyMarker(text: string): string {
-  const match = text.match(/^> \[reply:\d+:.+?\] (.+?)\n\n/);
+  const match = text.match(/^> \[reply:\d+:.+?\] .+?(?:\n\n|$)/);
   if (match) {
     return '↩️ ' + match[1].trim();
   }
