@@ -72,7 +72,7 @@ export default function MessageInput({
     // цитирование
     if (!editMessage && replyTo) {
       const replyText = extractReplyText(replyTo.content)
-      finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${replyText}\n\n${finalContent}`
+      finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${replyText}\n${finalContent}`
     }
     // редактирование
     if (editMessage) {

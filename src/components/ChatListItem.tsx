@@ -10,11 +10,12 @@ interface ChatListItemProps {
 }
 
 function cleanReplyMarker(text: string): string {
-  const match = text.match(/^> \[reply:\d+:.+?\] .+?(?:\n\n|$)/);
+  const match = text.match(/^> \[reply:\d+:.+?\](.*)/)
   if (match) {
-    return '↩️ ' + match[1].trim();
+    const rest = match[1]?.trim() || ''
+    return '↩️ ' + (rest.length > 0 ? rest : '')
   }
-  return text;
+  return text
 }
 
 function formatTime(dateStr: string): string {
