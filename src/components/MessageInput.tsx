@@ -71,8 +71,8 @@ export default function MessageInput({
     let finalContent = text.trim()
     // цитирование
     if (!editMessage && replyTo) {
-      const replyText = extractReplyText(replyTo.content)
-      finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${replyText}\n${finalContent}`
+      const cleanReplyText = extractReplyText(replyTo.content)
+      finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${cleanReplyText || '(сообщение)'}${finalContent}`
     }
     // редактирование
     if (editMessage) {
