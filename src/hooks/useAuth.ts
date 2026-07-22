@@ -39,6 +39,7 @@ export function useAuth() {
 
     const existingPrivateKey = getPrivateKey(user.id)
     if (!existingPrivateKey) {
+      // Ключа нет – генерируем новую пару
       try {
         const keypair = await generateRSAKeyPair()
         savePrivateKey(user.id, keypair.privateKey)
@@ -51,6 +52,10 @@ export function useAuth() {
       } catch (err) {
         console.error('Failed to generate keys', err)
       }
+    } else {
+      // Ключ уже есть (восстановлен или остался с предыдущей сессии)
+      // НЕ генерируем новый и НЕ обновляем публичный ключ на сервере
+      console.log('Using existing private key')
     }
   }, [setAuth, setBackupCreated])
 

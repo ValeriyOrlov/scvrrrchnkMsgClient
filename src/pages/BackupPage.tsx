@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPrivateKey, encryptWithPassword, decryptWithPassword } from '../lib/crypto'
-import { saveBackup, getBackup } from '../lib/api'
+import { saveBackup, getBackup, updatePublicKey } from '../lib/api'
 import useAuthStore from '../store/authStore'
+import forge from 'node-forge'
 
 export default function BackupPage() {
   const currentUser = useAuthStore(state => state.user)
@@ -52,6 +53,14 @@ export default function BackupPage() {
       const decrypted = decryptWithPassword(encryptedBackup, password)
       if (decrypted) {
         localStorage.setItem(`privateKey_${currentUser!.id}`, decrypted)
+
+        // Вот здесь мы объявляем переменную privateKey
+        const privateKey = forge.pki.privateKeyFromPem(decrypted)
+        // И тут же используем её для получения публичного ключа
+        const publicKey = forge.pki.setRsaPublicKey(privateKey.n, privateKey.e)
+        const publicKeyPem = forge.pki.publicKeyToPem(publicKey)
+        await updatePublicKey(publicKeyPem)
+
         useAuthStore.getState().setBackupCreated(true)
         setModalMessage('Ключ успешно восстановлен!')
         setShowModal(true)
