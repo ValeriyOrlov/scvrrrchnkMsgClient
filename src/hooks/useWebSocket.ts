@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
 import { useTypingStore } from '../store/typingStore'
+import type { Message } from '../types'
 
 let socketCounter = 0
 
@@ -22,7 +23,6 @@ export function useWebSocket() {
     const token = useAuthStore.getState().accessToken
     if (!token) return
 
-    // Закрываем предыдущее соединение, если оно ещё живо
     if (socketRef.current) {
       socketRef.current.close()
       socketRef.current = null
@@ -40,7 +40,10 @@ export function useWebSocket() {
         if (data.type === 'chat_message') {
           const chatId = data.message?.chat_id
           if (chatId) {
-            queryClient.invalidateQueries({ queryKey: ['messages'], exact: false })
+            queryClient.setQueryData(['messages', chatId], (old: Message[] = []) => {
+              if (old.some(m => m.id === data.message.id)) return old
+              return [...old, data.message]
+            })
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'message_updated' || data.type === 'message_deleted') {
@@ -79,7 +82,6 @@ export function useWebSocket() {
     }
   }, [queryClient])
 
-  // Первичное подключение при монтировании
   useEffect(() => {
     connect()
     return () => {
@@ -88,7 +90,6 @@ export function useWebSocket() {
     }
   }, [connect])
 
-  // Переподключение при изменении токена (логин/логаут)
   useEffect(() => {
     const unsubscribe = useAuthStore.subscribe((state, prevState) => {
       if (state.accessToken && !prevState.accessToken) {

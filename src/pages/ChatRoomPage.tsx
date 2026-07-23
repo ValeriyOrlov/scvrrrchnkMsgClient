@@ -57,8 +57,6 @@ export default function ChatRoomPage() {
     useShallow((state) => state.typing[chatId] || [])
   )
 
-  const reversedMessages = useMemo(() => messages ? [...messages].reverse() : [], [messages])
-
   useEffect(() => {
     if (!messages || messages.length === 0) return
     const maxId = Math.max(...messages.map(m => m.id))
@@ -70,7 +68,7 @@ export default function ChatRoomPage() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [reversedMessages])
+  }, [messages])
 
   const otherTypingUsers = useMemo(
     () => typingUsers.filter((id: number) => id !== user?.id),
@@ -197,15 +195,14 @@ export default function ChatRoomPage() {
           backgroundSize: '200px'
         }}
       >
-        {reversedMessages &&
+        {messages &&
           <MessageList 
-            messages={reversedMessages}
+            messages={messages}
             currentUserId={user!.id}
             chatId={chatId}
             onReply={setReplyTo}
             onEdit={handleStartEdit}
             onForward={handleForward}
-            onScrollToReply={scrollToMessage}
             messageRefs={messageRefs}
             roomKey={roomKey}
             chatType={chat?.type}
