@@ -1,6 +1,6 @@
 import authApi from "./axios";
 import messengerApi from "./messengerApi";
-import type { Chat, Message } from "../types/index.ts"
+import type { Chat, Message, User } from "../types/index.ts"
 
 export const loginApi = (email: string, password: string) => authApi.post('/login', { email, password }).
   then(res => res.data)
@@ -10,6 +10,9 @@ export const registerApi = (email: string, username: string, password: string) =
 
 export const refreshApi = (refreshToken: string) => authApi.post('/refresh', { refresh_token: refreshToken }).
   then(res => res.data)
+
+export const getAllUsers = () =>
+  messengerApi.get<User[]>('/users').then(res => res.data)
 
 export const getChats = () => messengerApi.get<Chat[]>('/chats').then(res => res.data)
 
