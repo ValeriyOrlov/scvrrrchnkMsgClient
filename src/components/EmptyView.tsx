@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from "react-router-dom";
+import bgPattern from '../assets/images/messages-box-background-blue.jpg'
 
 export function EmptyView() {
   const { user: currentUser, logout, backupCreated } = useAuth()
@@ -44,7 +45,14 @@ export function EmptyView() {
           )}
         </div>
       </header>
-    <div className="flex flex-col items-center justify-center h-full p-4">
+    <div
+      className="flex flex-col items-center justify-center h-full p-4"
+      style={{ 
+          backgroundImage: `url(${bgPattern})`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '200px'
+        }}
+      >
       <div className="text-6xl mb-4">💬</div>
       <p className="text-gray-600 text-center mb-4">У вас пока нет чатов</p>
       <button
