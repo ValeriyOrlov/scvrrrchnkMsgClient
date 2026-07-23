@@ -12,7 +12,7 @@ export default function Layout() {
 
   return (
     <WebSocketContext.Provider value={{ sendMessage }}>
-      <div className="max-w-lg mx-auto h-dvh bg-gray-50 overflow-hidden">
+      <div className="max-w-lg mx-auto h-dvh bg-white overflow-hidden">
         <Outlet />
         {showBackupWarning && <BackupWarningModal onClose={dismissBackupWarning} />}
       </div>
