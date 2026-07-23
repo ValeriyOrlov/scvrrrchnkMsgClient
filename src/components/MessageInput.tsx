@@ -20,8 +20,7 @@ interface Props {
 }
 
 function extractReplyText(content: string): string {
-  const match = content.match(/^> \[reply:\d+:.+?\] .+?\n\n/)
-  return match ? content.slice(match[0].length).trim() : content.trim()
+  return content?.trim() || '(сообщение)'
 }
 
 export default function MessageInput({
@@ -69,27 +68,25 @@ export default function MessageInput({
     if (!text.trim() || !currentUser) return
 
     let finalContent = text.trim()
-    // цитирование
+
     if (!editMessage && replyTo) {
-      const cleanReplyText = extractReplyText(replyTo.content)
-      finalContent = `> [reply:${replyTo.id}:${replyTo.sender.username}] ${cleanReplyText || '(сообщение)'}${finalContent}`
+      const replyText = extractReplyText(replyTo.content)
+      finalContent = `[reply_to:${replyTo.id}]\n┌${replyTo.sender.username}\n│ ${replyText}\n└──\n${finalContent}`
     }
-    // редактирование
+
     if (editMessage) {
       let contentToSave = text.trim()
-      const replyMatch = editMessage.content.match(/^> \[reply:\d+:.+?\] .+?\n\n/)
+      const replyMatch = editMessage.content.match(/^> \[reply:\d+:.+?\] (.+?)(?:\n|$)/)
       if (replyMatch) {
         contentToSave = replyMatch[0] + contentToSave
       }
 
-
       const encryptedPayload = encryptMessage(contentToSave, chatType ?? 'private', chatKeys, currentUser.id, roomKey)
-
 
       updateMutation.mutate(
         {
           messageId: editMessage.id,
-          content: contentToSave,   // будет использован для кэша, но на сервер не попадёт
+          content: contentToSave,
           encrypted: encryptedPayload,
         },
         { onSuccess: () => { setText(''); onCancelEdit?.() } }
@@ -97,11 +94,9 @@ export default function MessageInput({
       return
     }
 
-    // Отправка нового сообщения
     const encryptedPayload = encryptMessage(finalContent, chatType ?? 'private', chatKeys, currentUser.id, roomKey)
 
-    // Добавляем сообщение в кэш мгновенно (без ожидания ответа сервера)
-   const tempMessage: Message = {
+    const tempMessage: Message = {
       id: Date.now(),
       chat_id: chatId,
       sender_id: currentUser.id,

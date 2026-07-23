@@ -9,11 +9,11 @@ interface ChatListItemProps {
   onlineUsers: number[];
 }
 
-function cleanReplyMarker(text: string): string {
-  const match = text.match(/^> \[reply:\d+:.+?\](.*)/)
+// Извлекает текст комментария к цитате (всё, что после └──)
+function extractReplyPreview(text: string): string {
+  const match = text.match(/\n└──\n(.+)/s)
   if (match) {
-    const rest = match[1]?.trim() || ''
-    return '↩️ ' + (rest.length > 0 ? rest : '')
+    return '↩️ ' + match[1].trim()
   }
   return text
 }
@@ -52,7 +52,7 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
     // Пытаемся расшифровать, если есть зашифрованные поля и ключ
     if (chat.last_message.content) {
       // Открытый текст есть (старое сообщение или для отправителя)
-      messagePreview = cleanReplyMarker(chat.last_message.content);
+      messagePreview = extractReplyPreview(chat.last_message.content);
     } else if (
       chat.last_message.encrypted_content &&
       chat.last_message.iv &&
@@ -72,7 +72,7 @@ export function ChatListItem({ chat, currentUserId, onPress, onlineUsers }: Chat
           privateKey
         );
         if (decrypted) {
-          messagePreview = cleanReplyMarker(decrypted);
+          messagePreview = extractReplyPreview(decrypted);
         } else {
           messagePreview = 'Зашифрованное сообщение';
         }

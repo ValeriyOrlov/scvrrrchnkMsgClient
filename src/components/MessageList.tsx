@@ -10,7 +10,6 @@ interface Props {
   onReply?: (msg: Message) => void
   onForward?: (msg: Message) => void
   onEdit?: (msg: Message) => void
-  onScrollToReply?: (messageId: number) => void
   messageRefs?: React.RefObject<Record<number, HTMLDivElement | null>>
   roomKey?: string | null
   chatType?: 'private' | 'group'
@@ -21,7 +20,7 @@ const isSameDay = (d1: Date, d2: Date) =>
   d1.getMonth() === d2.getMonth() &&
   d1.getDate() === d2.getDate()
 
-export default function MessageList({ messages, currentUserId, chatId, onReply, onForward, onEdit, onScrollToReply, messageRefs, roomKey, chatType }: Props) {
+export default function MessageList({ messages, currentUserId, chatId, onReply, onForward, onEdit, messageRefs, roomKey, chatType }: Props) {
   const messagesMap = useMemo(() => {
     const map = new Map<number, Message>()
     messages.forEach(msg => map.set(msg.id, msg))
@@ -40,7 +39,7 @@ export default function MessageList({ messages, currentUserId, chatId, onReply, 
         return (
           <Fragment key={msg.id}>
             {showDivider && <DateDivider date={msgDate} />}
-            <div ref={(el) => { if (messageRefs) messageRefs.current[msg.id] = el }}>
+            <div id={`msg-${msg.id}`} ref={(el) => { if (messageRefs) messageRefs.current[msg.id] = el }}>
               <MessageBubble
                 message={msg}
                 isOwn={msg.sender_id === currentUserId}
@@ -48,7 +47,6 @@ export default function MessageList({ messages, currentUserId, chatId, onReply, 
                 onReply={onReply}
                 onForward={onForward}
                 onEdit={onEdit}
-                onScrollToReply={onScrollToReply}
                 messagesMap={messagesMap}
                 roomKey={roomKey}
                 chatType={chatType}

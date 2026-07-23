@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDeleteMessage } from '../hooks/useDeleteMessage'
 import type { Message } from '../types'
-import { getMessageById } from '../lib/api'
 import ConfirmModal from './ConfirmModal'
 import { getPrivateKey, decryptMessage, decryptMessageWithRoomKey } from '../lib/crypto'
 import useAuthStore from '../store/authStore'
@@ -13,130 +12,53 @@ interface Props {
   onReply?: (msg: Message) => void
   onForward?: (msg: Message) => void
   onEdit?: (msg: Message) => void
-  onScrollToReply?: (messageId: number) => void
   messagesMap?: Map<number, Message>
   roomKey?: string | null
   chatType?: 'private' | 'group'
 }
 
-function extractLastReply(content: string): string {
-  const parts = content.split('\n\n')
-  for (let i = parts.length - 1; i >= 0; i--) {
-    if (!parts[i].startsWith('> [reply:')) {
-      return parts[i].trim()
-    }
-  }
-  return content.trim()
-}
-
-export default function MessageBubble({ message, isOwn, chatId, onReply, onForward, onEdit, onScrollToReply, messagesMap, roomKey, chatType }: Props) {
+export default function MessageBubble({ message, isOwn, chatId, onReply, onForward, onEdit, roomKey, chatType }: Props) {
   const [showActions, setShowActions] = useState(false)
   const [menuBelow, setMenuBelow] = useState(true)
   const deleteMutation = useDeleteMessage(chatId)
   const bubbleRef = useRef<HTMLDivElement>(null)
-  const [fetchedQuotedMessage, setFetchedQuotedMessage] = useState<Message | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const currentUser = useAuthStore(state => state.user)
   const privateKey = currentUser ? getPrivateKey(currentUser.id) : null
 
-  // Расшифровка сообщения
   const baseContent = useMemo(() => {
-    // Для своих сообщений всегда показываем content (открытый текст из кэша)
-    if (isOwn && message.content) {
-      return message.content
-    }
-
-    // Если нет зашифрованных данных – возвращаем content (или запасной текст)
-    if (!message.encrypted_content || !message.iv || !message.auth_tag) {
-      return message.content || 'Сообщение'
-    }
-
-    // Нет приватного ключа – не можем расшифровать
-    if (!privateKey) {
-      return 'Зашифрованное сообщение (нет ключа)'
-    }
-
-    // Групповой чат – используем Room Key
+    if (isOwn && message.content) return message.content
+    if (!message.encrypted_content || !message.iv || !message.auth_tag) return message.content || 'Сообщение'
+    if (!privateKey) return 'Зашифрованное сообщение (нет ключа)'
     if (chatType === 'group' && roomKey) {
-      try {
-        return decryptMessageWithRoomKey(
-          message.encrypted_content,
-          message.iv,
-          message.auth_tag,
-          roomKey
-        )
-      } catch (e) {
-        return 'Ошибка расшифровки'
-      }
+      try { return decryptMessageWithRoomKey(message.encrypted_content, message.iv, message.auth_tag, roomKey) }
+      catch (e) { return 'Ошибка расшифровки' }
     }
-
-    // Личный чат – существующая логика
-    const encryptedKey = isOwn
-      ? message.encrypted_key_sender
-      : message.encrypted_key_recipient
+    const encryptedKey = isOwn ? message.encrypted_key_sender : message.encrypted_key_recipient
     if (encryptedKey) {
-      try {
-        return decryptMessage(
-          message.encrypted_content,
-          encryptedKey,
-          message.iv,
-          message.auth_tag,
-          privateKey
-        )
-      } catch (e) {
-        return 'Ошибка расшифровки'
-      }
+      try { return decryptMessage(message.encrypted_content, encryptedKey, message.iv, message.auth_tag, privateKey) }
+      catch (e) { return 'Ошибка расшифровки' }
     }
-
     return message.content || 'Сообщение'
   }, [message, isOwn, privateKey, roomKey, chatType])
 
-  // Парсинг маркера цитаты
-  let quoteAuthor = ''
-  let quoteText = ''
-  let replyTargetId: number | null = null
-  let quotedMessage: Message | undefined
+  // Парсим цитату
+  const fullMatch = baseContent?.match(/^\[reply_to:(\d+)\]\n┌(.+?)\n│ (.+?)\n└──\n/s)
+  const replyTargetId = fullMatch ? parseInt(fullMatch[1]) : null
+  const quoteAuthor = fullMatch ? fullMatch[2] : null
+  const quoteText = fullMatch ? fullMatch[3] : null
+  const replyText = fullMatch ? baseContent!.slice(fullMatch[0].length) : baseContent
 
-  // Гарантируем, что baseContent всегда строка
-  const safeBaseContent = baseContent ?? '';
+  const displayContent = replyText || baseContent || ''
 
-  const replyMatch = safeBaseContent.match(/^> \[reply:(\d+):(.+?)\]\s*(.+?)(?:\n|$)/);  const displayContent = replyMatch
-    ? safeBaseContent.slice(replyMatch[0].length)
-    : safeBaseContent
-
-  if (replyMatch) {
-    replyTargetId = parseInt(replyMatch[1])
-    quoteAuthor = replyMatch[2]
-    quoteText = replyMatch[3].trim()
-    quotedMessage = messagesMap?.get(replyTargetId)
-  }
-
-  const displayQuotedContent = quotedMessage
-    ? extractLastReply(quotedMessage.content)
-    : fetchedQuotedMessage
-      ? extractLastReply(fetchedQuotedMessage.content)
-      : (quoteText || 'Сообщение удалено')
-
-  // Закрытие меню при клике вне
   useEffect(() => {
     if (!showActions) return
     const handleClick = (e: MouseEvent) => {
-      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
-        setShowActions(false)
-      }
+      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) setShowActions(false)
     }
     document.addEventListener('click', handleClick)
     return () => document.removeEventListener('click', handleClick)
   }, [showActions])
-
-  // Загрузка сообщения по ID, если его нет в текущем чате
-  useEffect(() => {
-    if (replyTargetId && !quotedMessage && !fetchedQuotedMessage) {
-      getMessageById(replyTargetId)
-        .then(msg => setFetchedQuotedMessage(msg))
-        .catch(() => setFetchedQuotedMessage(null))
-    }
-  }, [replyTargetId, quotedMessage, fetchedQuotedMessage])
 
   const toggleMenu = () => {
     if (!showActions) {
@@ -150,7 +72,6 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   }
 
   const handleDelete = () => setShowDeleteConfirm(true)
-
   const confirmDelete = () => {
     deleteMutation.mutate(message.id)
     setShowDeleteConfirm(false)
@@ -164,24 +85,16 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
   const menuItems = (
     <div className="absolute left-1/2 -translate-x-1/2 bg-white shadow-lg rounded-2xl py-2 px-1 text-sm z-10 whitespace-nowrap"
          style={{ [menuBelow ? 'top' : 'bottom']: 'calc(100% + 4px)' }}>
-      <button onClick={(e) => { e.stopPropagation(); onReply?.(message); setShowActions(false); }}
-              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
-        ↩️ Ответить
-      </button>
-      <button onClick={(e) => { e.stopPropagation(); onForward?.({  ...message, content: baseContent || ''  }); setShowActions(false); }}
-              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
-        ↪️ Переслать
-      </button>
+      <button onClick={(e) => { e.stopPropagation(); onReply?.({ ...message, content: baseContent || '' }); setShowActions(false); }}
+              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">↩️ Ответить</button>
+      <button onClick={(e) => { e.stopPropagation(); onForward?.({ ...message, content: baseContent || '' }); setShowActions(false); }}
+              className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">↪️ Переслать</button>
       {isOwn && (
         <>
           <button onClick={(e) => { e.stopPropagation(); onEdit?.(message); setShowActions(false); }}
-                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">
-            ✏️ Редактировать
-          </button>
+                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-gray-700">✏️ Редактировать</button>
           <button onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-red-500">
-            🗑️ Удалить
-          </button>
+                  className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100 rounded-xl text-red-500">🗑️ Удалить</button>
         </>
       )}
     </div>
@@ -202,18 +115,27 @@ export default function MessageBubble({ message, isOwn, chatId, onReply, onForwa
             isOwn ? 'bg-blue-500 text-white rounded-br-md' : 'bg-white text-gray-900 rounded-bl-md'
           } ${showActions ? 'ring-2 ring-blue-300' : ''}`}
         >
-          {replyTargetId && (
+          {quoteAuthor && (
             <div
-              onClick={(e) => { e.stopPropagation(); onScrollToReply?.(replyTargetId!) }}
-              className="bg-gray-100/70 border-l-2 border-blue-300 pl-2 pr-1 py-1 mb-2 rounded text-xs cursor-pointer hover:bg-gray-200 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                const targetId = e.currentTarget.getAttribute('data-reply-to')
+                if (targetId) {
+                  const target = document.getElementById(`msg-${targetId}`)
+                  if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    target.classList.add('highlight-pulse')
+                    setTimeout(() => target.classList.remove('highlight-pulse'), 2000)
+                  }
+                }
+              }}
+              data-reply-to={replyTargetId || undefined}
+              className="bg-black/5 border-l-2 border-blue-400 pl-2 pr-1 py-1 mb-2 rounded text-xs cursor-pointer hover:bg-black/10 transition-colors"
             >
-              <span className="font-semibold text-blue-600">{quoteAuthor}</span>
-              <p className="text-gray-600 italic truncate max-w-[200px]">
-                {displayQuotedContent}
-              </p>
+              <span className="font-bold text-blue-800">{quoteAuthor}</span>
+              <p className="text-gray-400 italic mt-0.5">{quoteText}</p>
             </div>
           )}
-
           <p className="text-sm whitespace-pre-wrap break-words">{displayContent}</p>
           <div className={`text-xs mt-1 flex items-center gap-1 ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
             <span>{time}</span>
