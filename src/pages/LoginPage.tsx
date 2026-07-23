@@ -4,6 +4,19 @@ import { useAuth } from '../hooks/useAuth.ts'
 import flyingBird from "../assets/images/flying_bird.jpg"
 import crashBird from "../assets/images/crash_bird.jpg"
 
+function getHumanReadableError(error: any): string {
+  if (!error?.response?.data?.error) return 'Ошибка входа'
+  
+  const msg = error.response.data.error.toLowerCase()
+  
+  if (msg.includes('invalid credentials') || msg.includes('invalid email')) return 'Неверный email или пароль'
+  if (msg.includes('user not found')) return 'Пользователь с таким email не найден'
+  if (msg.includes('too many requests')) return 'Слишком много попыток. Подождите немного'
+  if (msg.includes('network')) return 'Проблемы с сетью. Проверьте подключение'
+  
+  return 'Ошибка входа'
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,7 +40,7 @@ export default function LoginPage() {
     try {
       await login(email, password)
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Ошибка входа')
+      setError(getHumanReadableError(err))
     } finally {
       setLoading(false)
       setTimeout(() => setError(''), 2000)
@@ -37,12 +50,13 @@ export default function LoginPage() {
   return (
     <div className="py-8">
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">Вход</h1>
+        <h2 className="text-2xl font-bold mb-6 text-center">Вход</h2>
         <img
           src={error ? crashBird : flyingBird}
           alt="Птичка"
           className="w-64 h-64 mx-auto mb-4"
         />
+        <h1 className="text-2xl font-bold mb-6 text-center">.scvorrrechnik!</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -89,6 +103,20 @@ export default function LoginPage() {
             Зарегистрироваться
           </Link>
         </p>
+      </div>
+      <div className="mt-8 pb-6 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur-sm shadow-sm">
+          <span className="text-xs text-gray-500">строил</span>
+          <span className="text-sm font-medium text-gray-800 bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">
+            @ValerrriyOrlov
+          </span>
+          <span className="text-xs text-gray-500">разукрашивала</span>
+          <span className="text-sm font-medium text-gray-800 bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">
+            @Semy08
+          </span>
+          <span className="text-xs text-gray-400">•</span>
+          <span className="text-xs text-gray-500">2026</span>
+        </div>
       </div>
     </div>
   )
