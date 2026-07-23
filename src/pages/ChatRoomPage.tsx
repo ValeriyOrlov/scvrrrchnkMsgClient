@@ -92,14 +92,6 @@ export default function ChatRoomPage() {
       .join(', ') + ' печатает...'
   }, [otherTypingUsers, chat])
 
-  const scrollToMessage = (messageId: number) => {
-    const el = messageRefs.current[messageId]
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.add('ring-2', 'ring-blue-400')
-    setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400'), 2000)
-  }
-
   // Публичные ключи участников (для личных чатов)
   const [chatKeys, setChatKeys] = useState<Record<number, string>>({})
 
