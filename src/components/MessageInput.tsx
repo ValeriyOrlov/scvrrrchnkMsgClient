@@ -118,7 +118,6 @@ export default function MessageInput({
         onSuccess: () => {
           setText('')
           onCancelReply?.()
-          queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
         }
       }
     )

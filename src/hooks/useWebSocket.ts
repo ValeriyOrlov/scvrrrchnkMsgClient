@@ -40,10 +40,7 @@ export function useWebSocket() {
         if (data.type === 'chat_message') {
           const chatId = data.message?.chat_id
           if (chatId) {
-            queryClient.setQueryData(['messages', chatId], (old: Message[] = []) => {
-              if (old.some(m => m.id === data.message.id)) return old
-              return [...old, data.message]
-            })
+            queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
             queryClient.invalidateQueries({ queryKey: ['chats'] })
           }
         } else if (data.type === 'message_updated' || data.type === 'message_deleted') {
