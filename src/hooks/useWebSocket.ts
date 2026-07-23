@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import useAuthStore from '../store/authStore'
 import { useTypingStore } from '../store/typingStore'
-import type { Message } from '../types'
 
 let socketCounter = 0
 
